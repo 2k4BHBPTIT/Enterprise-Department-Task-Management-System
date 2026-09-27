@@ -1,0 +1,159 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RoleName {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+  CANCELLED
+}
+
+model Role {
+  id    String   @id @default(uuid()) @db.Uuid
+  name  RoleName @unique
+  users User[]
+}
+
+model User {
+  id        String    @id @default(uuid()) @db.Uuid
+  email     String    @unique
+  password  String
+  is_active Boolean   @default(true)
+  role_id   String    @db.Uuid
+  role      Role      @relation(fields: [role_id], references: [id], onDelete: Restrict)
+  employee  Employee?
+  
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model Department {
+  id         String     @id @default(uuid()) @db.Uuid
+  name       String     @unique
+  manager_id String?    @unique @db.Uuid
+  manager    Employee?  @relation("DepartmentManager", fields: [manager_id], references: [id], onDelete: SetNull)
+  employees  Employee[] @relation("DepartmentEmployees")
+  projects   Project[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model Position {
+  id        String     @id @default(uuid()) @db.Uuid
+  title     String     @unique
+  employees Employee[]
+}
+
+model Employee {
+  id            String      @id @default(uuid()) @db.Uuid
+  user_id       String      @unique @db.Uuid
+  user          User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  full_name     String
+  phone         String?
+  department_id String?     @db.Uuid
+  department    Department? @relation("DepartmentEmployees", fields: [department_id], references: [id], onDelete: SetNull)
+  position_id   String?     @db.Uuid
+  position      Position?   @relation(fields: [position_id], references: [id], onDelete: SetNull)
+
+  managed_department Department?     @relation("DepartmentManager")
+  projects           ProjectMember[]
+  assigned_tasks     Task[]          @relation("AssignedTasks")
+  comments           TaskComment[]
+  task_history       TaskHistory[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model Project {
+  id            String          @id @default(uuid()) @db.Uuid
+  name          String
+  department_id String          @db.Uuid
+  department    Department      @relation(fields: [department_id], references: [id], onDelete: Cascade)
+  start_date    DateTime
+  end_date      DateTime
+  status        String          @default("ACTIVE")
+  members       ProjectMember[]
+  tasks         Task[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([department_id])
+}
+
+model ProjectMember {
+  id          String   @id @default(uuid()) @db.Uuid
+  project_id  String   @db.Uuid
+  employee_id String   @db.Uuid
+  project     Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  employee    Employee @relation(fields: [employee_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+
+  @@unique([project_id, employee_id])
+}
+
+model Task {
+  id          String       @id @default(uuid()) @db.Uuid
+  project_id  String       @db.Uuid
+  project     Project      @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  assignee_id String?      @db.Uuid
+  assignee    Employee?    @relation("AssignedTasks", fields: [assignee_id], references: [id], onDelete: SetNull)
+  title       String
+  description String?
+  status      TaskStatus   @default(TODO)
+  progress    Int          @default(0) // Should be validated 0-100 in logic
+  due_date    DateTime
+
+  comments    TaskComment[]
+  history     TaskHistory[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([project_id])
+  @@index([assignee_id])
+  @@index([status])
+  @@index([due_date])
+}
+
+model TaskHistory {
+  id            String   @id @default(uuid()) @db.Uuid
+  task_id       String   @db.Uuid
+  task          Task     @relation(fields: [task_id], references: [id], onDelete: Cascade)
+  changed_by    String   @db.Uuid
+  employee      Employee @relation(fields: [changed_by], references: [id], onDelete: Cascade)
+  field_changed String
+  old_value     String?
+  new_value     String?
+  changed_at    DateTime @default(now())
+
+  @@index([task_id])
+}
+
+model TaskComment {
+  id          String   @id @default(uuid()) @db.Uuid
+  task_id     String   @db.Uuid
+  task        Task     @relation(fields: [task_id], references: [id], onDelete: Cascade)
+  employee_id String   @db.Uuid
+  employee    Employee @relation(fields: [employee_id], references: [id], onDelete: Cascade)
+  content     String
+
+  created_at DateTime @default(now())
+
+  @@index([task_id])
+}
