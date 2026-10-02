@@ -2,37 +2,39 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { Lock, Mail } from 'lucide-react';
+import api from '../api/axios';
 
 const Login: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('admin@company.com');
+  const [password, setPassword] = useState('password123');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
 
     try {
-      // Mock API call
-      // const response = await api.post('/auth/login', { email, password });
-      
-      // Mocking the authentication logic
-      if (email === 'admin@test.com' && password === 'password') {
-        login({ id: '1', email, fullName: 'System Admin', role: 'ADMIN' });
-        navigate('/dashboard');
-      } else if (email === 'manager@test.com' && password === 'password') {
-        login({ id: '2', email, fullName: 'Department Manager', role: 'MANAGER', departmentId: 'd1' });
-        navigate('/dashboard');
-      } else if (email === 'employee@test.com' && password === 'password') {
-        login({ id: '3', email, fullName: 'Regular Employee', role: 'EMPLOYEE', departmentId: 'd1' });
-        navigate('/dashboard');
-      } else {
-        setError('Invalid credentials (use admin@test.com / password)');
-      }
-    } catch (err) {
-      setError('Login failed. Please try again.');
+      const response = await api.post('/auth/login', { email, password });
+
+      const { user, accessToken } = response.data.data;
+
+      login({
+        id: user.id,
+        email: user.email,
+        fullName: user.employee?.full_name || 'No Name',
+        role: user.role,
+        departmentId: user.employee?.department_id,
+      }, accessToken);
+
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Login failed. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -61,7 +63,7 @@ const Login: React.FC = () => {
                 type="email"
                 required
                 className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none"
-                placeholder="admin@test.com"
+                placeholder="admin@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -87,18 +89,19 @@ const Login: React.FC = () => {
 
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-colors"
+            disabled={isLoading}
+            className={`w-full bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-colors ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
           >
-            Sign In
+            {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
         <div className="mt-6 text-sm text-gray-500 text-center">
-          <p>Demo accounts (pwd: password):</p>
+          <p>Demo accounts (pwd: password123):</p>
           <ul className="mt-1">
-            <li>admin@test.com</li>
-            <li>manager@test.com</li>
-            <li>employee@test.com</li>
+            <li>admin@company.com</li>
+            <li>manager@company.com</li>
+            <li>employee@company.com</li>
           </ul>
         </div>
       </div>
