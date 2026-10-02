@@ -7,6 +7,10 @@ import MainLayout from './layouts/MainLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Tasks from './pages/Tasks';
+import Projects from './pages/Projects';
+import ManageTasks from './pages/ManageTasks';
+import KpiReport from './pages/KpiReport';
+import Settings from './pages/Settings';
 import Departments from './pages/Departments';
 
 const App: React.FC = () => {

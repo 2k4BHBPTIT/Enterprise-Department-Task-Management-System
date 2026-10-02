@@ -1,7 +1,6 @@
-import { PrismaClient, RoleName } from '@prisma/client';
+import { RoleName } from '@prisma/client';
 import bcrypt from 'bcrypt';
-
-const prisma = new PrismaClient();
+import { prisma } from '../src/config/db';
 
 async function main() {
   console.log('Start seeding...');
@@ -123,6 +122,26 @@ async function main() {
     },
     include: { employee: true },
   });
+
+  // 5. Projects
+  const existingProject = await prisma.project.findFirst({
+    where: { name: 'Alpha Version Release', department_id: devDept.id },
+  });
+
+  if (!existingProject) {
+    const startDate = new Date();
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 30);
+
+    await prisma.project.create({
+      data: {
+        name: 'Alpha Version Release',
+        department_id: devDept.id,
+        start_date: startDate,
+        end_date: endDate,
+      },
+    });
+  }
 
   console.log('Seeding finished.');
 }
