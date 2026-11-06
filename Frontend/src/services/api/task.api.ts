@@ -20,6 +20,8 @@ interface BackendTask {
   taskType?: string;
   type?: string;
   departmentId?: number;
+  progressPercent?: number;
+  progress_percent?: number;
 }
 
 const mapTask = (task: BackendTask): Task => {
@@ -50,8 +52,8 @@ const mapTask = (task: BackendTask): Task => {
     is_urgent: priority === 'URGENT',
     isUrgent: priority === 'URGENT',
     quadrant,
-    progress_percent: status === 'COMPLETED' ? 100 : 0,
-    progressPercent: status === 'COMPLETED' ? 100 : 0,
+    progress_percent: task.progressPercent ?? task.progress_percent ?? (status === 'COMPLETED' ? 100 : 0),
+    progressPercent: task.progressPercent ?? task.progress_percent ?? (status === 'COMPLETED' ? 100 : 0),
     assignee_id: task.assigneeId ?? 0,
     assigneeId: task.assigneeId ?? 0,
     assignee_name: task.assigneeName,
@@ -71,7 +73,9 @@ const mapTask = (task: BackendTask): Task => {
 const unwrapTask = (response: ApiResponse<BackendTask>): Task =>
   mapTask(unwrapResponse(response));
 
-const toBackendTask = (data: Partial<TaskFormData>) => ({
+type TaskUpdateData = Partial<TaskFormData> & { progressPercent?: number };
+
+const toBackendTask = (data: TaskUpdateData) => ({
   projectId: data.projectId ? Number(data.projectId) : undefined,
   title: data.title,
   description: data.description || undefined,
@@ -81,6 +85,7 @@ const toBackendTask = (data: Partial<TaskFormData>) => ({
   deadline: data.dueDate ? `${data.dueDate}T23:59:59` : undefined,
   followerUserIds: data.followerIds?.map(Number),
   dependencyTaskIds: data.dependencyIds?.map(Number),
+  progressPercent: data.progressPercent,
 });
 
 export const taskApi = {
@@ -135,7 +140,7 @@ export const taskApi = {
     return unwrapTask(response.data);
   },
 
-  updateTask: async (id: number | string, data: Partial<TaskFormData>): Promise<Task> => {
+  updateTask: async (id: number | string, data: TaskUpdateData): Promise<Task> => {
     const response = await apiClient.put<ApiResponse<BackendTask>>(`/tasks/${id}`, toBackendTask(data));
     return unwrapTask(response.data);
   },
@@ -151,6 +156,36 @@ export const taskApi = {
   updateTaskStatus: async (taskId: number | string, status: TaskStatus): Promise<Task> => {
     const response = await apiClient.patch<ApiResponse<BackendTask>>(`/tasks/${taskId}/status`, { status });
     return unwrapTask(response.data);
+  },
+
+  updateTaskProgress: async (
+    taskId: number | string,
+    progressPercent: number,
+    status: TaskStatus,
+    task: Task,
+  ): Promise<Task> => {
+    const response = await apiClient.put<ApiResponse<BackendTask>>(`/tasks/${taskId}`, {
+      projectId: Number(task.projectId ?? task.project_id),
+      title: task.title,
+      description: task.description || undefined,
+      priority: task.priority,
+      status,
+      assigneeId: Number(task.assigneeId ?? task.assignee_id) || undefined,
+      deadline: (task.deadline || task.dueDate)
+        ? `${String(task.deadline || task.dueDate).slice(0, 10)}T23:59:59`
+        : undefined,
+      followerUserIds: (task.followerIds ?? task.follower_ids ?? []).map(Number),
+      dependencyTaskIds: (task.dependencyIds ?? []).map(Number),
+      progressPercent,
+    });
+    if (!response.data) {
+      return { ...task, progressPercent, progress_percent: progressPercent, status };
+    }
+    const payload = response.data as ApiResponse<BackendTask> | BackendTask;
+    if ('success' in payload) {
+      return unwrapTask(response.data as ApiResponse<BackendTask>);
+    }
+    return mapTask(payload as BackendTask);
   },
 
   deleteTask: async (id: number | string): Promise<{ success: boolean }> => {

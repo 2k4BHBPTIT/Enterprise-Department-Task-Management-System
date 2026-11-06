@@ -52,15 +52,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ onRefresh }) => {
     dashboardMode === 'PM' ? pmMenuItems : dashboardMode === 'HR' ? hrMenuItems : emailMenuItems;
 
   return (
-    <aside className="w-64 bg-white/90 backdrop-blur-md border border-slate-100 rounded-3xl p-4 flex flex-col justify-between shadow-sm flex-shrink-0">
+    <aside className="flex-shrink-0 rounded-2xl border border-slate-200/80 bg-white/90 p-2 shadow-sm backdrop-blur md:p-3 lg:sticky lg:top-[88px] lg:h-[calc(100vh-112px)] lg:w-64 lg:p-4">
       <div>
         {/* Profile Card Header */}
-        <div className="flex items-center gap-3 p-2 bg-blue-50/50 rounded-2xl mb-4 border border-blue-100/50">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-bold flex items-center justify-center text-sm shadow-sm">
+        <div className="mb-3 hidden items-center gap-3 rounded-xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 p-2.5 lg:flex">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-xs font-bold text-white shadow-sm shadow-blue-200">
             {dashboardMode === 'PM' ? 'PM' : dashboardMode === 'HR' ? 'HR' : 'SYS'}
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="text-xs font-bold text-slate-800 truncate">
+            <h4 className="truncate text-xs font-bold text-slate-800">
               {dashboardMode === 'PM' ? 'PM Dashboard' : dashboardMode === 'HR' ? 'HR Dashboard' : 'Email Admin'}
             </h4>
             <p className="text-[11px] text-slate-400 truncate">Timezone : Today</p>
@@ -68,7 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onRefresh }) => {
         </div>
 
         {/* Navigation list */}
-        <nav className="space-y-1">
+        <nav aria-label="Điều hướng chính" className="flex gap-1 overflow-x-auto lg:block lg:space-y-1 lg:overflow-visible">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -76,14 +76,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ onRefresh }) => {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl transition text-left ${
+                aria-current={isActive ? 'page' : undefined}
+                title={`${item.label}: ${item.sub}`}
+                className={`group flex min-w-max items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 lg:w-full lg:min-w-0 ${
                   isActive
-                    ? 'bg-blue-100/70 text-blue-700 shadow-sm font-semibold'
-                    : 'text-slate-600 hover:bg-slate-50'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-100'
+                    : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
                 }`}
               >
-                <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
-                <div className="flex-1 min-w-0">
+                <Icon className={`h-[18px] w-[18px] flex-shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-blue-600'}`} aria-hidden="true" />
+                <div className="hidden flex-1 min-w-0 lg:block">
                   <div className="text-xs leading-none truncate">{item.label}</div>
                   <div className={`text-[10px] mt-0.5 truncate ${isActive ? 'text-blue-500' : 'text-slate-400'}`}>
                     {item.sub}
@@ -96,7 +98,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onRefresh }) => {
       </div>
 
       {/* Footer Info */}
-      <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 px-1">
+      <div className="hidden items-center justify-between border-t border-slate-100 px-1 pt-4 text-xs text-slate-500 lg:flex">
         <div className="flex items-center gap-2 truncate">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
           <span className="text-[11px] truncate">

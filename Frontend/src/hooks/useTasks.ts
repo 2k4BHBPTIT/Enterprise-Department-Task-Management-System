@@ -47,7 +47,7 @@ export const useCreateTask = () => {
 export const useUpdateTask = () => {
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const updateTask = async (id: number | string, data: Partial<TaskFormData>): Promise<Task> => {
+  const updateTask = async (id: number | string, data: Partial<TaskFormData> & { progressPercent?: number }): Promise<Task> => {
     setIsUpdating(true);
     try {
       return await taskApi.updateTask(id, data);

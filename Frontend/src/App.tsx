@@ -110,30 +110,30 @@ export const App: React.FC = () => {
   const { title, subtitle } = getHeaderInfo();
 
   return (
-    <div className="min-h-screen bg-[#EBF2FA] p-3 sm:p-5 flex flex-col gap-4 font-['Plus_Jakarta_Sans',sans-serif]">
+    <div className="min-h-screen bg-[#eef3f8] font-['Plus_Jakarta_Sans',sans-serif]">
       {/* Top Header */}
       <Header />
 
       {/* Main Body with Sidebar + View Content */}
-      <div className="flex flex-col lg:flex-row gap-4 items-start flex-1">
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-4 px-3 py-4 sm:px-5 lg:flex-row lg:px-7 lg:py-5">
         {/* Sidebar */}
         <Sidebar onRefresh={handleRefresh} />
 
         {/* Content Pane */}
-        <main className="flex-1 w-full space-y-4">
+        <main id="main-content" className="min-w-0 flex-1 space-y-4">
           {activeTab !== 'email-settings' && (
             <FilterBar title={title} subtitle={subtitle} onReload={handleRefresh} />
           )}
 
           {isRefreshing ? (
-            <div className="flex items-center justify-center p-20 bg-white/80 rounded-3xl shadow-sm">
+            <div role="status" aria-live="polite" aria-busy="true" className="flex min-h-64 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm">
               <div className="flex flex-col items-center gap-3">
-                <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent motion-reduce:animate-none"></div>
                 <span className="text-xs text-slate-500 font-semibold">Đang đồng bộ dữ liệu...</span>
               </div>
             </div>
           ) : (
-            <div className="transition-all duration-200">
+            <div className="min-w-0 animate-fade-in motion-reduce:animate-none">
               {activeTab === 'overview' && <PMOverview />}
               {activeTab === 'tasks' && <TaskList />}
               {activeTab === 'projects' && <ProjectList />}

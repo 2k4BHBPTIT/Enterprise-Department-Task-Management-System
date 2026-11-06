@@ -34,29 +34,30 @@ export const FilterBar: React.FC<FilterBarProps> = ({ onReload, title, subtitle 
   }, []);
 
   return (
-    <div className="bg-white/90 backdrop-blur-md border border-slate-100 rounded-3xl p-5 shadow-sm space-y-4">
+    <div className="space-y-4 rounded-2xl border border-slate-200/80 bg-white/95 p-4 shadow-sm sm:p-5">
       {/* Title & Search / Action Row */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">{title}</h1>
-          <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-blue-600">Trang làm việc</p>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{title}</h1>
+          <p className="mt-1 text-xs leading-5 text-slate-500">{subtitle}</p>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
-          <div className="relative min-w-[280px] w-full sm:w-auto">
+          <div className="relative min-w-0 w-full sm:w-72">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={filters.searchTerm}
               onChange={(e) => setFilter('searchTerm', e.target.value)}
               placeholder="Tìm công việc/dự án/nhân sự (tên, mã, email)..."
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-xs text-slate-700 placeholder:text-slate-400 transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
             />
           </div>
 
           <button
             onClick={resetFilters}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-2xl text-xs font-semibold shadow-sm transition"
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
             Reset
@@ -64,7 +65,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ onReload, title, subtitle 
 
           <button
             onClick={reloadCurrentPage}
-            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-semibold shadow-sm transition"
+            className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white shadow-sm shadow-blue-200 transition hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             Tải lại
@@ -73,7 +74,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ onReload, title, subtitle 
       </div>
 
       {/* Multi-Criteria Filter Controls */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-9 gap-2.5 pt-2 border-t border-slate-100">
+      <div className="grid grid-cols-2 gap-2.5 border-t border-slate-100 pt-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-9">
         <div>
           <label className="block text-[11px] text-slate-400 font-medium mb-1">Từ ngày (Hạn chót)</label>
           <input
