@@ -15,12 +15,26 @@ import {
 import { taskApi } from '../../services/api/task.api';
 import { projectApi } from '../../services/api/project.api';
 import { Task, Project } from '../../types';
+import { useAuthStore } from '../../store/auth.store';
+import { useFilterStore } from '../../store/filter.store';
 
 export const PMOverview: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const setActiveTab = useAuthStore((state) => state.setActiveTab);
+  const setFilters = useFilterStore((state) => state.setFilters);
+
+  const openTasks = (filters: Parameters<typeof setFilters>[0]) => {
+    setFilters({ status: 'ALL', priority: 'ALL', projectId: 'ALL', assigneeId: 'ALL', onlyOverdue: false, ...filters });
+    setActiveTab('tasks');
+  };
+
+  const openProjects = (projectId?: number | string) => {
+    if (projectId) setFilters({ projectId: String(projectId) });
+    setActiveTab('projects');
+  };
 
   useEffect(() => {
     Promise.all([taskApi.getTasks(), projectApi.getProjects()])
@@ -46,25 +60,26 @@ export const PMOverview: React.FC = () => {
   ] as const;
 
   const statusData = [
-    { name: 'Chưa làm', value: count('TODO'), color: '#94A3B8' },
-    { name: 'Đang làm', value: count('IN_PROGRESS'), color: '#3B82F6' },
-    { name: 'Đang chờ', value: count('WAITING'), color: '#38BDF8' },
-    { name: 'Bị chặn', value: count('BLOCKED'), color: '#F59E0B' },
-    { name: 'Hoàn thành', value: count('COMPLETED'), color: '#10B981' },
-    { name: 'Quá hạn', value: overdue, color: '#F43F5E' },
-    { name: 'Đã hủy', value: count('CANCELLED'), color: '#CBD5E1' },
+    { name: 'Chưa làm', status: 'TODO', value: count('TODO'), color: '#94A3B8' },
+    { name: 'Đang làm', status: 'IN_PROGRESS', value: count('IN_PROGRESS'), color: '#3B82F6' },
+    { name: 'Đang chờ', status: 'WAITING', value: count('WAITING'), color: '#38BDF8' },
+    { name: 'Bị chặn', status: 'BLOCKED', value: count('BLOCKED'), color: '#F59E0B' },
+    { name: 'Hoàn thành', status: 'COMPLETED', value: count('COMPLETED'), color: '#10B981' },
+    { name: 'Quá hạn', status: 'OVERDUE', value: overdue, color: '#F43F5E' },
+    { name: 'Đã hủy', status: 'CANCELLED', value: count('CANCELLED'), color: '#CBD5E1' },
   ].filter((item) => item.value > 0);
 
   const priorityData = [
-    { name: 'Thấp', value: tasks.filter((task) => task.priority === 'LOW').length, color: '#94A3B8' },
-    { name: 'Trung bình', value: tasks.filter((task) => task.priority === 'MEDIUM').length, color: '#38BDF8' },
-    { name: 'Cao', value: tasks.filter((task) => task.priority === 'HIGH').length, color: '#F59E0B' },
-    { name: 'Khẩn cấp', value: tasks.filter((task) => task.priority === 'URGENT').length, color: '#F43F5E' },
+    { name: 'Thấp', priority: 'LOW', value: tasks.filter((task) => task.priority === 'LOW').length, color: '#94A3B8' },
+    { name: 'Trung bình', priority: 'MEDIUM', value: tasks.filter((task) => task.priority === 'MEDIUM').length, color: '#38BDF8' },
+    { name: 'Cao', priority: 'HIGH', value: tasks.filter((task) => task.priority === 'HIGH').length, color: '#F59E0B' },
+    { name: 'Khẩn cấp', priority: 'URGENT', value: tasks.filter((task) => task.priority === 'URGENT').length, color: '#F43F5E' },
   ];
 
   const projectData = projects.slice(0, 10).map((project) => ({
     name: project.name.length > 18 ? `${project.name.slice(0, 18)}...` : project.name,
     progress: project.progressPercent ?? project.progress_percent ?? 0,
+    projectId: project.id,
   }));
 
   const workloadData = Array.from(tasks.reduce((result, task) => {
@@ -79,6 +94,8 @@ export const PMOverview: React.FC = () => {
       name: name.length > 16 ? `${name.slice(0, 16)}...` : name,
       total: value.total,
       completed: value.completed,
+      assigneeId: tasks.find((task) => (task.assigneeName || task.assignee_name || 'Chưa phân công') === name)?.assigneeId
+        ?? tasks.find((task) => (task.assigneeName || task.assignee_name || 'Chưa phân công') === name)?.assignee_id,
     }))
     .sort((a, b) => b.total - a.total)
     .slice(0, 10);
@@ -90,10 +107,22 @@ export const PMOverview: React.FC = () => {
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {cards.map(([label, value, color]) => (
-          <div key={label} className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm">
+          <button
+            key={label}
+            type="button"
+            onClick={() => {
+              if (label === 'Tổng công việc') openTasks({});
+              else if (label === 'Quá hạn') openTasks({ status: 'OVERDUE', onlyOverdue: true });
+              else {
+                const status = label === 'Đang làm' ? 'IN_PROGRESS' : label === 'Hoàn thành' ? 'COMPLETED' : label === 'Đang chờ' ? 'WAITING' : 'BLOCKED';
+                openTasks({ status });
+              }
+            }}
+            className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm text-left transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md motion-reduce:transform-none"
+          >
             <span className="text-xs text-slate-500 font-medium">{label}</span>
             <div className={`text-2xl font-bold mt-2 text-${color}-600`}>{value}</div>
-          </div>
+          </button>
         ))}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -104,7 +133,7 @@ export const PMOverview: React.FC = () => {
         <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
           <h3 className="text-sm font-bold mb-3">Dự án đang theo dõi</h3>
           <div className="space-y-2">{projects.slice(0, 8).map((project) => (
-            <div key={project.id} className="flex justify-between text-xs border-b pb-2"><span>{project.name}</span><strong>{project.progressPercent ?? project.progress_percent ?? 0}%</strong></div>
+            <button key={project.id} type="button" onClick={() => openProjects(project.id)} className="flex w-full justify-between border-b pb-2 text-xs transition hover:text-blue-600"><span>{project.name}</span><strong>{project.progressPercent ?? project.progress_percent ?? 0}%</strong></button>
           ))}</div>
         </div>
       </div>
@@ -114,8 +143,17 @@ export const PMOverview: React.FC = () => {
           <div className="h-72 mt-3">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={statusData} dataKey="value" nameKey="name" innerRadius={62} outerRadius={105} paddingAngle={2}>
-                  {statusData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+                <Pie
+                  data={statusData}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={62}
+                  outerRadius={105}
+                  paddingAngle={2}
+                  onClick={(entry: { status?: string }) => entry.status && openTasks(entry.status === 'OVERDUE' ? { status: 'OVERDUE', onlyOverdue: true } : { status: entry.status })}
+                  className="cursor-pointer outline-none"
+                >
+                  {statusData.map((entry) => <Cell key={entry.name} fill={entry.color} className="cursor-pointer outline-none" />)}
                 </Pie>
                 <Tooltip />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
@@ -133,7 +171,7 @@ export const PMOverview: React.FC = () => {
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                 <Tooltip />
-                <Bar dataKey="value" name="Số công việc" radius={[8, 8, 0, 0]}>
+                <Bar dataKey="value" name="Số công việc" radius={[8, 8, 0, 0]} onClick={(entry: { priority?: string }) => entry.priority && openTasks({ priority: entry.priority as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' })}>
                   {priorityData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
                 </Bar>
               </BarChart>
@@ -150,7 +188,7 @@ export const PMOverview: React.FC = () => {
                 <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10 }} />
                 <YAxis type="category" dataKey="name" width={115} tick={{ fontSize: 10 }} />
                 <Tooltip formatter={(value) => [`${value}%`, 'Tiến độ']} />
-                <Bar dataKey="progress" name="Tiến độ" fill="#3B82F6" radius={[0, 7, 7, 0]} />
+                <Bar dataKey="progress" name="Tiến độ" fill="#3B82F6" radius={[0, 7, 7, 0]} onClick={(entry: { projectId?: number | string }) => entry.projectId && openProjects(entry.projectId)} className="cursor-pointer" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -166,8 +204,8 @@ export const PMOverview: React.FC = () => {
                 <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
                 <Tooltip />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="total" name="Tổng việc" fill="#60A5FA" radius={[5, 5, 0, 0]} />
-                <Bar dataKey="completed" name="Đã hoàn thành" fill="#34D399" radius={[5, 5, 0, 0]} />
+                <Bar dataKey="total" name="Tổng việc" fill="#60A5FA" radius={[5, 5, 0, 0]} onClick={(entry: { assigneeId?: number | string }) => entry.assigneeId !== undefined && openTasks({ assigneeId: String(entry.assigneeId) })} className="cursor-pointer" />
+                <Bar dataKey="completed" name="Đã hoàn thành" fill="#34D399" radius={[5, 5, 0, 0]} onClick={(entry: { assigneeId?: number | string }) => entry.assigneeId !== undefined && openTasks({ assigneeId: String(entry.assigneeId), status: 'COMPLETED' })} className="cursor-pointer" />
               </BarChart>
             </ResponsiveContainer>
           </div>
