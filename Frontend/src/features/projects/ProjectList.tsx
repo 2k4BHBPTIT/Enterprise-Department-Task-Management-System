@@ -9,6 +9,7 @@ import { SkeletonTable } from '../../components/common/SkeletonTable';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ProjectFormData } from '../../schema/project.schema';
 import { ProjectMembersModal } from './ProjectMembersModal';
+import { ProjectWorkspace } from './ProjectWorkspace';
 
 export const ProjectList: React.FC = () => {
   const { canCreateProject, canEditProject, canDeleteProject, canManageProject } = useAuthStore();
@@ -21,6 +22,17 @@ export const ProjectList: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [selectedMembersProject, setSelectedMembersProject] = useState<Project | null>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+
+  if (selectedProject) {
+    return (
+      <ProjectWorkspace
+        project={selectedProject}
+        onBack={() => setSelectedProject(null)}
+        onEdit={() => handleOpenEdit(selectedProject)}
+      />
+    );
+  }
 
   const handleOpenCreate = () => {
     setEditingProject(null);
@@ -112,7 +124,7 @@ export const ProjectList: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {projects.map((p) => (
-                <tr key={p.id} className="hover:bg-slate-50/70 transition group">
+                <tr key={p.id} onClick={() => setSelectedProject(p)} className="hover:bg-slate-50/70 transition group cursor-pointer">
                   <td className="py-3.5 pr-3">
                     <div className="font-bold text-slate-800">{p.name}</div>
                     <div className="text-[11px] text-slate-400">{p.description}</div>
@@ -146,7 +158,7 @@ export const ProjectList: React.FC = () => {
                     {p.completed_tasks ?? p.completedTasks}/{p.total_tasks ?? p.totalTasks}
                   </td>
                   {(canEditProject() || canDeleteProject() || canManageProject()) && (
-                    <td className="py-3.5 text-center">
+                    <td className="py-3.5 text-center" onClick={(event) => event.stopPropagation()}>
                       <div className="flex items-center justify-center gap-1 opacity-80 group-hover:opacity-100">
                         {canManageProject() && (
                           <button

@@ -16,10 +16,12 @@ interface BackendTask {
   deadline?: string;
   followers?: Array<{ id: number }>;
   overdue?: boolean;
+  overdueDays?: number;
   dependencies?: Array<{ id: number }>;
   taskType?: string;
   type?: string;
   departmentId?: number;
+  departmentName?: string;
   progressPercent?: number;
   progress_percent?: number;
 }
@@ -63,10 +65,11 @@ const mapTask = (task: BackendTask): Task => {
     dependencyIds: task.dependencies?.map((dependency) => String(dependency.id)) || [],
     deadline: task.deadline || '',
     dueDate: task.deadline || '',
-    overdueDays: task.overdue ? 1 : 0,
-    overdue_days: task.overdue ? 1 : 0,
+    overdueDays: task.overdueDays ?? (task.overdue ? 1 : 0),
+    overdue_days: task.overdueDays ?? (task.overdue ? 1 : 0),
     department_id: task.departmentId,
     departmentId: task.departmentId,
+    departmentName: task.departmentName,
   };
 };
 

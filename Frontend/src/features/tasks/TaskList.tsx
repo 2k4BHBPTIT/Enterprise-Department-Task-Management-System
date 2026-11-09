@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useFilterStore } from '../../store/filter.store';
 import { useAuthStore } from '../../store/auth.store';
 import { useGetTasks, useCreateTask, useUpdateTask, useDeleteTask, useReassignTask } from '../../hooks/useTasks';
@@ -16,7 +16,11 @@ import { TaskFormData } from '../../schema/task.schema';
 export const TaskList: React.FC = () => {
   const { filters } = useFilterStore();
   const { currentUser, canCreateTask, canEditTask, canDeleteTask, canReassignLeader } = useAuthStore();
-  const { tasks, isLoading, refetch } = useGetTasks(filters);
+  const taskFilters = useMemo(
+    () => currentUser.role === 'EMPLOYEE' ? { ...filters, assigneeId: String(currentUser.id) } : filters,
+    [currentUser.id, currentUser.role, filters],
+  );
+  const { tasks, isLoading, refetch } = useGetTasks(taskFilters);
   const { createTask } = useCreateTask();
   const { updateTask } = useUpdateTask();
   const { deleteTask } = useDeleteTask();

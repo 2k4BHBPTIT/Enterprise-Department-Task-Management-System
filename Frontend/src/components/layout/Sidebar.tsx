@@ -9,10 +9,11 @@ import {
   Calendar,
   BarChart3,
   Award,
-  Mail,
+  MessageCircle,
   Building2,
   ShieldCheck,
   RotateCw,
+  WandSparkles,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 
@@ -23,11 +24,16 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ onRefresh }) => {
   const { dashboardMode, activeTab, setActiveTab, currentUser } = useAuthStore();
   const { isAdmin } = useAuthStore();
+  const employeeMenuItems = [
+    { id: 'overview', label: 'Tổng quan', sub: 'Công việc và tiến độ của bạn', icon: LayoutDashboard },
+    { id: 'tasks', label: 'Công việc của tôi', sub: 'Cập nhật trạng thái và tiến độ', icon: CheckSquare },
+    { id: 'messages', label: 'Nhắn tin', sub: 'Trò chuyện cùng đồng nghiệp', icon: MessageCircle },
+  ];
 
   const pmMenuItems = [
     { id: 'overview', label: 'Tổng quan', sub: 'KPI + biểu đồ + cảnh báo', icon: LayoutDashboard },
-    { id: 'tasks', label: 'Công việc', sub: 'Bảng công việc & cập nhật n...', icon: CheckSquare },
     { id: 'projects', label: 'Dự án', sub: 'Tiến độ dự án + click xem G...', icon: FolderGit2 },
+    { id: 'project-digitization', label: 'Số hóa dự án', sub: 'AI lập plan từ mô tả/tài liệu', icon: WandSparkles },
     { id: 'members', label: 'Nhân sự', sub: 'Workload & quá hạn theo ng...', icon: Users },
     { id: 'departments', label: 'Phòng ban', sub: 'Cơ cấu và quản lý phòng ban', icon: Building2 },
     ...(isAdmin() ? [{ id: 'permissions', label: 'Phân quyền', sub: 'Cấp vai trò cho người dùng', icon: ShieldCheck }] : []),
@@ -45,11 +51,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ onRefresh }) => {
   ];
 
   const emailMenuItems = [
-    { id: 'email-settings', label: 'Cấu hình Email', sub: 'Tab quản lý gửi mail tự động', icon: Mail },
+    { id: 'messages', label: 'Nhắn tin', sub: 'Trò chuyện cùng đồng nghiệp', icon: MessageCircle },
   ];
 
-  const menuItems =
-    dashboardMode === 'PM' ? pmMenuItems : dashboardMode === 'HR' ? hrMenuItems : emailMenuItems;
+  const menuItems = currentUser.role === 'EMPLOYEE'
+    ? employeeMenuItems
+    : dashboardMode === 'PM' ? pmMenuItems : dashboardMode === 'HR' ? hrMenuItems : emailMenuItems;
+  const workspaceLabel = currentUser.role === 'EMPLOYEE'
+    ? 'Employee Workspace'
+    : dashboardMode === 'PM' ? 'PM Dashboard' : dashboardMode === 'HR' ? 'HR Dashboard' : 'Messenger';
 
   return (
     <aside className="flex-shrink-0 rounded-2xl border border-slate-200/80 bg-white/90 p-2 shadow-sm backdrop-blur md:p-3 lg:sticky lg:top-[88px] lg:h-[calc(100vh-112px)] lg:w-64 lg:p-4">
@@ -57,11 +67,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ onRefresh }) => {
         {/* Profile Card Header */}
         <div className="mb-3 hidden items-center gap-3 rounded-xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 p-2.5 lg:flex">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-xs font-bold text-white shadow-sm shadow-blue-200">
-            {dashboardMode === 'PM' ? 'PM' : dashboardMode === 'HR' ? 'HR' : 'SYS'}
+            {currentUser.role === 'EMPLOYEE' ? 'ME' : dashboardMode === 'PM' ? 'PM' : dashboardMode === 'HR' ? 'HR' : 'SYS'}
           </div>
           <div className="flex-1 min-w-0">
             <h4 className="truncate text-xs font-bold text-slate-800">
-              {dashboardMode === 'PM' ? 'PM Dashboard' : dashboardMode === 'HR' ? 'HR Dashboard' : 'Email Admin'}
+              {workspaceLabel}
             </h4>
             <p className="text-[11px] text-slate-400 truncate">Timezone : Today</p>
           </div>

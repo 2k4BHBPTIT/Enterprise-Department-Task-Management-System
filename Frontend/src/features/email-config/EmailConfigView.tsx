@@ -15,6 +15,7 @@ export const EmailConfigView: React.FC = () => {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<EmailConfigFormData>({
     resolver: zodResolver(emailConfigSchema),
@@ -31,12 +32,29 @@ export const EmailConfigView: React.FC = () => {
 
   useEffect(() => {
     if (config) {
-      reset(config);
+      reset({
+        isEnabled: config.isEnabled ?? config.is_enabled,
+        dailySendTime: config.dailySendTime ?? config.daily_send_time ?? '09:00',
+        remindBefore7Days: config.remindBefore7Days ?? config.remind_before_7_days ?? true,
+        remindBefore3Days: config.remindBefore3Days ?? config.remind_before_3_days ?? true,
+        remindBefore1Day: config.remindBefore1Day ?? config.remind_before_1_day ?? true,
+        remindOnDueDate: config.remindOnDueDate ?? config.remind_on_due_date ?? true,
+        recipientEmails: config.recipientEmails ?? config.recipient_emails ?? '',
+      });
     }
   }, [config, reset]);
 
   const handleFormSubmit = async (data: EmailConfigFormData) => {
-    await updateConfig(data);
+    const saved = await updateConfig(data);
+    reset({
+      isEnabled: saved.isEnabled ?? saved.is_enabled,
+      dailySendTime: saved.dailySendTime ?? saved.daily_send_time,
+      remindBefore7Days: saved.remindBefore7Days ?? saved.remind_before_7_days,
+      remindBefore3Days: saved.remindBefore3Days ?? saved.remind_before_3_days,
+      remindBefore1Day: saved.remindBefore1Day ?? saved.remind_before_1_day,
+      remindOnDueDate: saved.remindOnDueDate ?? saved.remind_on_due_date,
+      recipientEmails: saved.recipientEmails ?? saved.recipient_emails,
+    });
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2500);
   };
@@ -114,6 +132,7 @@ export const EmailConfigView: React.FC = () => {
                 <td className="py-4 px-2">
                   <select
                     {...register('isEnabled', { setValueAs: (v) => v === 'yes' || v === true })}
+                    value={watch('isEnabled') ? 'yes' : 'no'}
                     className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs"
                   >
                     <option value="yes">Có</option>
@@ -133,6 +152,7 @@ export const EmailConfigView: React.FC = () => {
                 <td className="py-4 px-2">
                   <select
                     {...register('remindBefore7Days', { setValueAs: (v) => v === 'yes' || v === true })}
+                    value={watch('remindBefore7Days') ? 'yes' : 'no'}
                     className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs"
                   >
                     <option value="yes">Có</option>
@@ -142,6 +162,7 @@ export const EmailConfigView: React.FC = () => {
                 <td className="py-4 px-2">
                   <select
                     {...register('remindBefore3Days', { setValueAs: (v) => v === 'yes' || v === true })}
+                    value={watch('remindBefore3Days') ? 'yes' : 'no'}
                     className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs"
                   >
                     <option value="yes">Có</option>
@@ -151,6 +172,7 @@ export const EmailConfigView: React.FC = () => {
                 <td className="py-4 px-2">
                   <select
                     {...register('remindBefore1Day', { setValueAs: (v) => v === 'yes' || v === true })}
+                    value={watch('remindBefore1Day') ? 'yes' : 'no'}
                     className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs"
                   >
                     <option value="yes">Có</option>
@@ -160,6 +182,7 @@ export const EmailConfigView: React.FC = () => {
                 <td className="py-4 px-2">
                   <select
                     {...register('remindOnDueDate', { setValueAs: (v) => v === 'yes' || v === true })}
+                    value={watch('remindOnDueDate') ? 'yes' : 'no'}
                     className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs"
                   >
                     <option value="yes">Có</option>

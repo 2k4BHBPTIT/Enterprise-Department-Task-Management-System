@@ -22,6 +22,16 @@ export interface User {
   role: Role; // Alias
   status: 'ACTIVE' | 'INACTIVE' | string;
   avatar_url?: string;
+  date_of_birth?: string;
+  phone?: string;
+  address?: string;
+  specialization?: string;
+  skills?: string[];
+  education?: string;
+  experience_years?: number;
+  seniority?: string;
+  salary?: number;
+  cv_file_name?: string;
 }
 
 // ==========================================

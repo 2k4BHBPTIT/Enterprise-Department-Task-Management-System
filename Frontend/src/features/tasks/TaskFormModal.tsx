@@ -14,6 +14,7 @@ interface TaskFormModalProps {
   onClose: () => void;
   onSubmitSuccess: (data: TaskFormData, isEditing: boolean) => Promise<void> | void;
   initialTask?: Task | null;
+  defaultProjectId?: string;
 }
 
 export const TaskFormModal: React.FC<TaskFormModalProps> = ({
@@ -21,6 +22,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   onClose,
   onSubmitSuccess,
   initialTask,
+  defaultProjectId,
 }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -47,7 +49,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     defaultValues: {
       title: '',
       description: '',
-      projectId: '',
+      projectId: defaultProjectId || '',
       departmentId: '',
       assigneeId: '',
       followerIds: [],
@@ -82,7 +84,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       reset({
         title: '',
         description: '',
-        projectId: '',
+        projectId: defaultProjectId || '',
         departmentId: '',
         assigneeId: '',
         followerIds: [],
@@ -95,7 +97,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         isUrgent: false,
       });
     }
-  }, [initialTask, reset]);
+  }, [initialTask, defaultProjectId, reset]);
 
   const selectedFollowers = watch('followerIds') || [];
   const selectedDependencies = watch('dependencyIds') || [];

@@ -14,6 +14,7 @@ interface TaskNotification {
 
 export const Header: React.FC = () => {
   const { dashboardMode, setDashboardMode, setActiveTab, currentUser } = useAuthStore();
+  const isEmployee = currentUser.role === 'EMPLOYEE';
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [readIds, setReadIds] = useState<string[]>(() => {
@@ -24,7 +25,7 @@ export const Header: React.FC = () => {
   const modes = [
     { id: 'PM' as const, label: 'Dự án' },
     { id: 'HR' as const, label: 'Nhân sự' },
-    { id: 'EMAIL' as const, label: 'Email' },
+    { id: 'EMAIL' as const, label: 'Nhắn tin' },
   ];
 
   const notifications = useMemo(() => {
@@ -43,11 +44,15 @@ export const Header: React.FC = () => {
 
   useEffect(() => {
     let active = true;
-    const load = () => taskApi.getTasks().then((data) => active && setTasks(data)).catch(() => undefined);
+    const load = () => taskApi.getTasks(isEmployee ? { assigneeId: String(currentUser.id) } : undefined)
+      .then((data) => active && setTasks(isEmployee
+        ? data.filter((task) => String(task.assigneeId ?? task.assignee_id) === String(currentUser.id))
+        : data))
+      .catch(() => undefined);
     load();
     const timer = window.setInterval(load, 60000);
     return () => { active = false; window.clearInterval(timer); };
-  }, []);
+  }, [currentUser.id, isEmployee]);
 
   useEffect(() => {
     const closeOnOutside = (event: MouseEvent) => {
@@ -68,8 +73,12 @@ export const Header: React.FC = () => {
     setReadIds(ids);
     localStorage.setItem('readNotifications', JSON.stringify(ids));
     setNotificationsOpen(false);
-    setDashboardMode('PM');
-    setActiveTab('alerts');
+    if (isEmployee) {
+      setActiveTab('tasks');
+    } else {
+      setDashboardMode('PM');
+      setActiveTab('alerts');
+    }
   };
 
   return (
@@ -81,11 +90,11 @@ export const Header: React.FC = () => {
         </div>
         <div className="hidden sm:block">
           <p className="text-sm font-bold text-slate-900">Enterprise Workspace</p>
-          <p className="text-[11px] text-slate-400">Quản trị công việc tập trung</p>
+          <p className="text-[11px] text-slate-400">{isEmployee ? 'Không gian làm việc cá nhân' : 'Quản trị công việc tập trung'}</p>
         </div>
       </div>
 
-      <nav aria-label="Workspace" className="absolute left-1/2 hidden -translate-x-1/2 items-center rounded-xl border border-slate-200 bg-slate-50/80 p-1 md:flex">
+      {!isEmployee && <nav aria-label="Workspace" className="absolute left-1/2 hidden -translate-x-1/2 items-center rounded-xl border border-slate-200 bg-slate-50/80 p-1 md:flex">
         {modes.map((mode) => (
           <button
             key={mode.id}
@@ -101,17 +110,17 @@ export const Header: React.FC = () => {
             {mode.label}
           </button>
         ))}
-      </nav>
+      </nav>}
 
-      <label className="sr-only md:hidden" htmlFor="workspace-mode">Workspace</label>
-      <select
+      {!isEmployee && <label className="sr-only md:hidden" htmlFor="workspace-mode">Workspace</label>}
+      {!isEmployee && <select
         id="workspace-mode"
         value={dashboardMode}
         onChange={(event) => setDashboardMode(event.target.value as typeof dashboardMode)}
         className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs font-semibold text-slate-700 md:hidden focus-visible:ring-2 focus-visible:ring-blue-500"
       >
         {modes.map((mode) => <option key={mode.id} value={mode.id}>{mode.label}</option>)}
-      </select>
+      </select>}
 
       <div ref={notificationRef} className="relative flex items-center gap-2">
         <button type="button" aria-label={`Thông báo, ${unreadCount} chưa đọc`} aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen((open) => !open)} className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
@@ -142,7 +151,7 @@ export const Header: React.FC = () => {
           </span>
           <div className="hidden min-w-0 sm:block">
             <p className="max-w-28 truncate text-xs font-bold text-slate-800">{currentUser.name}</p>
-            <p className="flex items-center gap-1 text-[10px] text-slate-400"><ShieldCheck className="h-3 w-3" aria-hidden="true" />{currentUser.role}</p>
+            <p className="flex items-center gap-1 text-[10px] text-slate-400"><ShieldCheck className="h-3 w-3" aria-hidden="true" />{isEmployee ? 'Nhân viên' : currentUser.role}</p>
           </div>
           <ChevronDown className="hidden h-3.5 w-3.5 text-slate-400 sm:block" aria-hidden="true" />
         </div>

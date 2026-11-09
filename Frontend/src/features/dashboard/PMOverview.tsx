@@ -28,7 +28,7 @@ export const PMOverview: React.FC = () => {
 
   const openTasks = (filters: Parameters<typeof setFilters>[0]) => {
     setFilters({ status: 'ALL', priority: 'ALL', projectId: 'ALL', assigneeId: 'ALL', onlyOverdue: false, ...filters });
-    setActiveTab('tasks');
+    setActiveTab('projects');
   };
 
   const openProjects = (projectId?: number | string) => {

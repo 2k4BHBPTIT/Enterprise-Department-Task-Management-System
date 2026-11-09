@@ -9,6 +9,16 @@ interface BackendUser {
   departmentName?: string;
   systemRole?: string;
   status?: string;
+  dateOfBirth?: string;
+  phone?: string;
+  address?: string;
+  specialization?: string;
+  skills?: string[];
+  education?: string;
+  experienceYears?: number;
+  seniority?: string;
+  salary?: number;
+  cvFileName?: string;
 }
 
 const mapUser = (user: BackendUser): User => {
@@ -25,6 +35,16 @@ const mapUser = (user: BackendUser): User => {
     system_role: role,
     role,
     status: user.status || 'ACTIVE',
+    date_of_birth: user.dateOfBirth,
+    phone: user.phone,
+    address: user.address,
+    specialization: user.specialization,
+    skills: user.skills || [],
+    education: user.education,
+    experience_years: user.experienceYears,
+    seniority: user.seniority,
+    salary: user.salary,
+    cv_file_name: user.cvFileName,
   };
 };
 
@@ -41,7 +61,15 @@ export const userApi = {
     return mapUser(unwrapResponse(response.data));
   },
   updateUser: async (id: number | string, payload: Partial<{ fullName: string; email: string; departmentId: number; systemRole: string }>): Promise<User> => {
-    const response = await apiClient.put<ApiResponse<BackendUser>>(`/users/${id}`, payload);
+    const current = await userApi.getUsers();
+    const user = current.find((item) => String(item.id) === String(id));
+    if (!user) throw new Error('Không tìm thấy nhân sự để cập nhật phân quyền.');
+    const response = await apiClient.put<ApiResponse<BackendUser>>(`/users/${id}`, {
+      fullName: payload.fullName ?? user.full_name ?? user.name,
+      email: payload.email ?? user.email,
+      departmentId: payload.departmentId ?? (Number(user.departmentId || user.department_id) || undefined),
+      systemRole: payload.systemRole,
+    });
     return mapUser(unwrapResponse(response.data));
   },
   deleteUser: async (id: number | string): Promise<void> => {

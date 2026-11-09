@@ -46,7 +46,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setDashboardMode: (mode: 'PM' | 'HR' | 'EMAIL') => {
-    const defaultTab = mode === 'PM' ? 'overview' : mode === 'HR' ? 'hr-overview' : 'email-settings';
+    const defaultTab = mode === 'PM' ? 'overview' : mode === 'HR' ? 'hr-overview' : 'messages';
     set({ dashboardMode: mode, activeTab: defaultTab });
   },
 

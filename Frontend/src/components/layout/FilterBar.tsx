@@ -10,9 +10,10 @@ interface FilterBarProps {
   onReload?: () => void;
   title: string;
   subtitle: string;
+  showFilters?: boolean;
 }
 
-export const FilterBar: React.FC<FilterBarProps> = ({ onReload, title, subtitle }) => {
+export const FilterBar: React.FC<FilterBarProps> = ({ onReload, title, subtitle, showFilters = true }) => {
   const { filters, setFilter, resetFilters } = useFilterStore();
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -43,7 +44,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ onReload, title, subtitle 
           <p className="mt-1 text-xs leading-5 text-slate-500">{subtitle}</p>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+        {showFilters && <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
           <div className="relative min-w-0 w-full sm:w-72">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -70,11 +71,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({ onReload, title, subtitle 
             <RefreshCw className="w-3.5 h-3.5" />
             Tải lại
           </button>
-        </div>
+        </div>}
       </div>
 
       {/* Multi-Criteria Filter Controls */}
-      <div className="grid grid-cols-2 gap-2.5 border-t border-slate-100 pt-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-9">
+      {showFilters && <div className="grid grid-cols-2 gap-2.5 border-t border-slate-100 pt-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-9">
         <div>
           <label className="block text-[11px] text-slate-400 font-medium mb-1">Từ ngày (Hạn chót)</label>
           <input
@@ -200,7 +201,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ onReload, title, subtitle 
             <span className="text-[11px] text-slate-600 font-medium">Chỉ quá hạn</span>
           </label>
         </div>
-      </div>
+      </div>}
     </div>
   );
 };
