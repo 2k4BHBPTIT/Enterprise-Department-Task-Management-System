@@ -11,7 +11,6 @@ import {
   Award,
   MessageCircle,
   Building2,
-  ShieldCheck,
   RotateCw,
   WandSparkles,
 } from 'lucide-react';
@@ -23,7 +22,6 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ onRefresh }) => {
   const { dashboardMode, activeTab, setActiveTab, currentUser } = useAuthStore();
-  const { isAdmin } = useAuthStore();
   const employeeMenuItems = [
     { id: 'overview', label: 'Tổng quan', sub: 'Công việc và tiến độ của bạn', icon: LayoutDashboard },
     { id: 'tasks', label: 'Công việc của tôi', sub: 'Cập nhật trạng thái và tiến độ', icon: CheckSquare },
@@ -36,7 +34,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onRefresh }) => {
     { id: 'project-digitization', label: 'Số hóa dự án', sub: 'AI lập plan từ mô tả/tài liệu', icon: WandSparkles },
     { id: 'members', label: 'Nhân sự', sub: 'Workload & quá hạn theo ng...', icon: Users },
     { id: 'departments', label: 'Phòng ban', sub: 'Cơ cấu và quản lý phòng ban', icon: Building2 },
-    ...(isAdmin() ? [{ id: 'permissions', label: 'Phân quyền', sub: 'Cấp vai trò cho người dùng', icon: ShieldCheck }] : []),
     { id: 'eisenhower', label: 'Eisenhower', sub: 'Ma trận quan trọng/khẩn cấp', icon: Grid2X2 },
     { id: 'alerts', label: 'Cảnh báo', sub: 'Quá hạn / sắp đến hạn / log...', icon: Bell },
     { id: 'calendar', label: 'Lịch', sub: 'Lịch công việc dạng calendar', icon: Calendar },

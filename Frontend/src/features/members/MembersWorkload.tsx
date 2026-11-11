@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Edit2, Eye, Plus, Search, Trash2, Upload, Users } from 'lucide-react';
+import { Edit2, Eye, LoaderCircle, Plus, Search, ShieldCheck, Trash2, Upload, Users } from 'lucide-react';
 import { departmentApi } from '../../services/api/department.api';
 import { userApi } from '../../services/api/user.api';
 import { taskApi } from '../../services/api/task.api';
 import { Department, Task, User } from '../../types';
 import { useAuthStore } from '../../store/auth.store';
+import { PermissionManagement } from '../permissions/PermissionManagement';
+import { extractCvProfile } from './cv-extractor';
 
 type LocalStaffProfile = {
   dateOfBirth: string;
@@ -67,7 +69,8 @@ const emptyForm = {
 };
 
 export const MembersWorkload: React.FC = () => {
-  const { canManageStaff } = useAuthStore();
+  const { canManageStaff, isAdmin } = useAuthStore();
+  const [activeSection, setActiveSection] = useState<'staff' | 'create' | 'permissions'>('staff');
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -78,7 +81,12 @@ export const MembersWorkload: React.FC = () => {
   const [form, setForm] = useState(emptyForm);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [advancedSearch, setAdvancedSearch] = useState('');
+  const [staffError, setStaffError] = useState('');
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [cvStatus, setCvStatus] = useState('');
+  const [cvStatusType, setCvStatusType] = useState<'success' | 'error'>('success');
+  const [isExtractingCv, setIsExtractingCv] = useState(false);
+  const [cvSourceText, setCvSourceText] = useState('');
 
   const loadData = async () => {
     const [userData, departmentData, taskData] = await Promise.all([userApi.getUsers(), departmentApi.getDepartments(), taskApi.getTasks()]);
@@ -93,7 +101,8 @@ export const MembersWorkload: React.FC = () => {
     setEditingUser(null);
     setForm(emptyForm);
     setCvStatus('');
-    setIsFormOpen(true);
+    setCvSourceText('');
+    setActiveSection('create');
   };
 
   const openEdit = (user: User) => {
@@ -113,11 +122,14 @@ export const MembersWorkload: React.FC = () => {
       phone: user.phone || '',
       address: user.address || '',
     });
+    setCvStatus('');
+    setCvSourceText('');
     setIsFormOpen(true);
   };
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    let savedUserId = editingUser?.id;
     if (editingUser) {
       await userApi.updateUser(editingUser.id, {
         fullName: form.fullName,
@@ -126,26 +138,37 @@ export const MembersWorkload: React.FC = () => {
         systemRole: form.systemRole,
       });
     } else {
-      await userApi.createUser({
+      const createdUser = await userApi.createUser({
         fullName: form.fullName,
         email: form.email,
         password: form.password,
         departmentId: form.departmentId ? Number(form.departmentId) : undefined,
         systemRole: form.systemRole,
       });
+      savedUserId = createdUser.id;
     }
     setIsFormOpen(false);
     await loadData();
-    saveLocalProfile(editingUser?.id || 'draft', form);
+    if (savedUserId !== undefined) saveLocalProfile(savedUserId, form);
+    if (!editingUser) setActiveSection('staff');
   };
 
   const deleteUser = async (user: User) => {
-    if (!window.confirm(`Xóa nhân sự "${user.full_name || user.name}"?`)) return;
-    await userApi.deleteUser(user.id);
-    await loadData();
+    if (!window.confirm(`Ngừng hoạt động tài khoản của "${user.full_name || user.name}"? Tài khoản sẽ không còn hiển thị trong danh sách nhân sự.`)) return;
+    setStaffError('');
+    setDeletingUserId(String(user.id));
+    try {
+      await userApi.deleteUser(user.id);
+      setUsers((currentUsers) => currentUsers.filter((currentUser) => String(currentUser.id) !== String(user.id)));
+      if (String(selectedUser?.id) === String(user.id)) setSelectedUser(null);
+    } catch (error) {
+      setStaffError(error instanceof Error ? error.message : 'Không thể ngừng hoạt động nhân sự. Vui lòng thử lại.');
+    } finally {
+      setDeletingUserId(null);
+    }
   };
 
-  const visibleUsers = useMemo(() => users.filter((user) => {
+  const visibleUsers = useMemo(() => users.filter((user) => user.status === 'ACTIVE').filter((user) => {
     const matchesSearch = `${user.full_name || user.name} ${user.email}`.toLowerCase().includes(search.toLowerCase());
     const matchesDepartment = departmentFilter === 'ALL' || String(user.departmentId || user.department_id) === departmentFilter;
     const haystack = `${user.full_name || user.name} ${user.email} ${getLocalProfile(user).education} ${getLocalProfile(user).specialization} ${getLocalProfile(user).skills}`.toLowerCase();
@@ -155,27 +178,103 @@ export const MembersWorkload: React.FC = () => {
 
   const analyzeCv = async (file?: File) => {
     if (!file) return;
-    const text = await file.text().catch(() => '');
-    const lower = text.toLowerCase();
-    const degree = /kỹ sư|engineer|thạc sĩ|master|cử nhân/.exec(lower)?.[0] || '';
-    const specialization = /cntt|information technology|it/.test(lower) ? 'Công nghệ thông tin' : '';
-    const experience = /(\d+)\s*(năm|year)/.exec(lower);
-    setForm((current) => ({
-      ...current,
-      education: degree ? `${degree}${specialization ? ' CNTT' : ''}` : current.education,
-      specialization: specialization || current.specialization,
-      experienceYears: experience ? experience[1] : current.experienceYears,
-      skills: current.skills || ['React', 'JavaScript', 'SQL'].filter((skill) => lower.includes(skill.toLowerCase())).join(', '),
-    }));
-    setCvStatus(`Đã trích xuất ${file.name}. Vui lòng kiểm tra lại trước khi lưu.`);
+    setCvStatus('');
+    setIsExtractingCv(true);
+    try {
+      if (file.size > 10 * 1024 * 1024) {
+        throw new Error('CV vượt quá dung lượng 10 MB.');
+      }
+      setCvStatusType('success');
+      setCvStatus('Đang đọc CV...');
+      const result = await extractCvProfile(file, setCvStatus);
+      const extracted = result.profile;
+      setCvSourceText(result.sourceText);
+      const extractedFields = Object.entries(extracted).filter(([, value]) => Boolean(value?.trim()));
+      if (extractedFields.length === 0) {
+        setCvStatusType('error');
+        setCvStatus('Đã đọc được CV nhưng chưa nhận diện chắc chắn trường nào. Bạn có thể xem văn bản trích xuất bên dưới và nhập/chỉnh sửa thông tin thủ công.');
+        return;
+      }
+
+      const currentValueIsEmpty = (value: string) => !value.trim() || value.trim() === '0';
+      setForm((current) => ({
+        ...current,
+        fullName: currentValueIsEmpty(current.fullName) ? extracted.fullName || current.fullName : current.fullName,
+        email: currentValueIsEmpty(current.email) ? extracted.email || current.email : current.email,
+        phone: currentValueIsEmpty(current.phone) ? extracted.phone || current.phone : current.phone,
+        dateOfBirth: currentValueIsEmpty(current.dateOfBirth) ? extracted.dateOfBirth || current.dateOfBirth : current.dateOfBirth,
+        education: currentValueIsEmpty(current.education) ? extracted.education || current.education : current.education,
+        specialization: currentValueIsEmpty(current.specialization) ? extracted.specialization || current.specialization : current.specialization,
+        experienceYears: currentValueIsEmpty(current.experienceYears) ? extracted.experienceYears || current.experienceYears : current.experienceYears,
+        skills: currentValueIsEmpty(current.skills) ? extracted.skills || current.skills : current.skills,
+        address: currentValueIsEmpty(current.address) ? extracted.address || current.address : current.address,
+      }));
+      setCvStatusType('success');
+      setCvStatus(`Đã nhận diện ${extractedFields.length} trường từ ${file.name}. Hãy đối chiếu với CV và chỉnh lại nếu chưa chính xác; trường đang có dữ liệu không bị ghi đè.`);
+    } catch (error) {
+      setCvStatusType('error');
+      setCvStatus(error instanceof Error ? error.message : 'Không thể trích xuất nội dung CV.');
+    } finally {
+      setIsExtractingCv(false);
+    }
   };
+
+  const sectionTabs = (
+    <div role="tablist" aria-label="Quản lý nhân sự" className="flex w-fit gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeSection === 'staff'}
+        onClick={() => setActiveSection('staff')}
+        className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition ${activeSection === 'staff' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+      >
+        <Users className="h-4 w-4" aria-hidden="true" />
+        Nhân sự
+      </button>
+      {canManageStaff() && (
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeSection === 'create'}
+          onClick={openCreate}
+          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition ${activeSection === 'create' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Thêm nhân sự
+        </button>
+      )}
+      {isAdmin() && (
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeSection === 'permissions'}
+          onClick={() => setActiveSection('permissions')}
+          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition ${activeSection === 'permissions' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+        >
+          <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+          Phân quyền
+        </button>
+      )}
+    </div>
+  );
+
+  if (activeSection === 'permissions' && isAdmin()) {
+    return (
+      <div className="space-y-4">
+        {sectionTabs}
+        <PermissionManagement />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
+      {sectionTabs}
+      <div className={activeSection === 'create' ? 'hidden' : 'contents'}>
+      {staffError && <div role="alert" className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-xs text-red-700">{staffError}</div>}
       <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><h2 className="text-sm font-bold text-slate-800">Nhân sự và khối lượng công việc</h2><p className="text-xs text-slate-400 mt-1">Quản lý tài khoản, phòng ban, công việc đang phụ trách và tình trạng quá hạn</p></div>
-          {canManageStaff() && <button onClick={openCreate} className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold"><Plus className="w-4 h-4" />Thêm nhân sự</button>}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
           <label className="relative"><Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm tên hoặc email..." className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-400" /></label>
@@ -200,7 +299,7 @@ export const MembersWorkload: React.FC = () => {
                 <div className="flex items-center gap-3 min-w-0"><div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold">{(user.full_name || user.name || '?').charAt(0)}</div><div className="min-w-0"><div className="text-sm font-bold text-slate-800 truncate">{user.full_name || user.name}</div><div className="text-[11px] text-slate-400 truncate">{user.email}</div></div></div>
                 <div className="flex gap-1">
                   <button title="Xem chi tiết và công việc đang làm" onClick={() => setSelectedUser(user)} className="p-1.5 rounded-lg hover:bg-blue-50"><Eye className="w-3.5 h-3.5 text-blue-600" /></button>
-                  {canManageStaff() && <><button title="Sửa nhân sự" onClick={() => openEdit(user)} className="p-1.5 rounded-lg hover:bg-blue-50"><Edit2 className="w-3.5 h-3.5 text-blue-600" /></button><button title="Xóa nhân sự" onClick={() => deleteUser(user)} className="p-1.5 rounded-lg hover:bg-red-50"><Trash2 className="w-3.5 h-3.5 text-red-500" /></button></>}
+                  {canManageStaff() && <><button title="Sửa nhân sự" onClick={() => openEdit(user)} className="p-1.5 rounded-lg hover:bg-blue-50"><Edit2 className="w-3.5 h-3.5 text-blue-600" /></button><button title={deletingUserId === String(user.id) ? 'Đang ngừng hoạt động' : 'Ngừng hoạt động'} aria-label={`Ngừng hoạt động ${user.full_name || user.name}`} disabled={deletingUserId === String(user.id)} onClick={() => deleteUser(user)} className="p-1.5 rounded-lg hover:bg-red-50 disabled:cursor-wait disabled:opacity-50">{deletingUserId === String(user.id) ? <LoaderCircle className="w-3.5 h-3.5 animate-spin text-red-500" /> : <Trash2 className="w-3.5 h-3.5 text-red-500" />}</button></>}
                 </div>
               </div>
               <div className="flex gap-2 mt-3"><span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-600">{user.system_role || user.role}</span><span className="px-2 py-0.5 rounded-full text-[10px] bg-blue-50 text-blue-600">{user.departmentName || user.department_name || 'Chưa có phòng ban'}</span></div>
@@ -231,13 +330,30 @@ export const MembersWorkload: React.FC = () => {
           </div>
         </div>
       )}
+      </div>
 
-      {isFormOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onMouseDown={() => setIsFormOpen(false)}>
-          <form onSubmit={submit} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-lg bg-white rounded-3xl p-5 shadow-xl space-y-4">
+      {(isFormOpen || (activeSection === 'create' && canManageStaff())) && (
+        <div className={activeSection === 'create' ? 'rounded-3xl border border-slate-100 bg-white p-5 shadow-sm' : 'fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4'} onMouseDown={() => {
+          if (activeSection !== 'create') setIsFormOpen(false);
+        }}>
+          <form onSubmit={submit} onMouseDown={(event) => event.stopPropagation()} className={`w-full ${activeSection === 'create' ? 'space-y-4' : 'max-w-lg space-y-4 rounded-3xl bg-white p-5 shadow-xl'}`}>
             <h3 className="text-sm font-bold text-slate-800">{editingUser ? 'Cập nhật nhân sự' : 'Thêm nhân sự mới'}</h3>
-            <label className="flex cursor-pointer items-center gap-2 rounded-2xl border border-dashed border-blue-200 bg-blue-50/50 px-4 py-3 text-xs font-semibold text-blue-700"><Upload className="h-4 w-4" />Tải CV để AI trích xuất thông tin<input type="file" accept=".pdf,.doc,.docx,.txt" className="hidden" onChange={(event) => analyzeCv(event.target.files?.[0])} /></label>
-            {cvStatus && <div className="rounded-xl bg-emerald-50 px-3 py-2 text-[11px] text-emerald-700">{cvStatus}</div>}
+            <label className={`flex items-center gap-2 rounded-2xl border border-dashed px-4 py-3 text-xs font-semibold ${isExtractingCv ? 'cursor-wait border-slate-200 bg-slate-50 text-slate-500' : 'cursor-pointer border-blue-200 bg-blue-50/50 text-blue-700'}`}>
+              {isExtractingCv ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              {isExtractingCv ? 'Đang đọc và trích xuất CV...' : 'Tải CV để tự động điền thông tin'}
+              <input type="file" accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.webp,.bmp" className="hidden" disabled={isExtractingCv} onChange={(event) => {
+                void analyzeCv(event.target.files?.[0]);
+                event.currentTarget.value = '';
+              }} />
+            </label>
+            <p className="text-[10px] text-slate-400">Hỗ trợ PDF có văn bản hoặc scan, DOCX, TXT và ảnh PNG/JPG/WEBP (tối đa 10 MB, 20 trang cần OCR). OCR tiếng Việt–Anh xử lý trên trình duyệt; cần mạng để tải bộ máy và dữ liệu ngôn ngữ lần đầu.</p>
+            {cvStatus && <div role={cvStatusType === 'error' ? 'alert' : 'status'} className={`rounded-xl px-3 py-2 text-[11px] ${cvStatusType === 'error' ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-700'}`}>{cvStatus}</div>}
+            {cvSourceText && (
+              <details className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <summary className="cursor-pointer text-[11px] font-semibold text-slate-600">Xem văn bản OCR để đối chiếu</summary>
+                <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words text-[10px] leading-4 text-slate-600">{cvSourceText}</pre>
+              </details>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <label className="text-xs text-slate-500">Họ tên<input required value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} className="mt-1 w-full px-3 py-2 border rounded-xl text-slate-800" /></label>
               <label className="text-xs text-slate-500">Email<input required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} className="mt-1 w-full px-3 py-2 border rounded-xl text-slate-800" /></label>
@@ -253,7 +369,10 @@ export const MembersWorkload: React.FC = () => {
               <label className="text-xs text-slate-500 md:col-span-2">Kỹ năng (phân cách bằng dấu phẩy)<input value={form.skills} onChange={(event) => setForm({ ...form, skills: event.target.value })} placeholder="Java, React, SQL..." className="mt-1 w-full px-3 py-2 border rounded-xl" /></label>
               <label className="text-xs text-slate-500 md:col-span-2">Địa chỉ<input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} className="mt-1 w-full px-3 py-2 border rounded-xl" /></label>
             </div>
-            <div className="flex justify-end gap-2"><button type="button" onClick={() => setIsFormOpen(false)} className="px-4 py-2 rounded-xl bg-slate-100 text-xs font-semibold">Hủy</button><button type="submit" className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold">Lưu</button></div>
+            <div className="flex justify-end gap-2"><button type="button" onClick={() => {
+              if (editingUser) setIsFormOpen(false);
+              else setActiveSection('staff');
+            }} className="px-4 py-2 rounded-xl bg-slate-100 text-xs font-semibold">Hủy</button><button type="submit" className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold">Lưu</button></div>
           </form>
         </div>
       )}

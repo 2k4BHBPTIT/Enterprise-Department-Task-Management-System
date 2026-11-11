@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuthStore } from '../../store/auth.store';
 import { useFilterStore } from '../../store/filter.store';
 import { useGetProjects, useCreateProject, useUpdateProject, useDeleteProject } from '../../hooks/useProjects';
-import { Trash2, Edit2, Plus, AlertCircle, Users } from 'lucide-react';
+import { Trash2, Edit2, Plus, AlertCircle, Users, FolderKanban } from 'lucide-react';
 import { Project } from '../../types';
 import { ProjectFormModal } from './ProjectFormModal';
 import { SkeletonTable } from '../../components/common/SkeletonTable';
@@ -19,6 +19,7 @@ export const ProjectList: React.FC = () => {
   const { updateProject } = useUpdateProject();
   const { deleteProject } = useDeleteProject();
 
+  const [activeSection, setActiveSection] = useState<'list' | 'create'>('list');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [selectedMembersProject, setSelectedMembersProject] = useState<Project | null>(null);
@@ -36,11 +37,12 @@ export const ProjectList: React.FC = () => {
 
   const handleOpenCreate = () => {
     setEditingProject(null);
-    setIsModalOpen(true);
+    setActiveSection('create');
   };
 
   const handleOpenEdit = (project: Project) => {
     setEditingProject(project);
+    setActiveSection('list');
     setIsModalOpen(true);
   };
 
@@ -50,7 +52,8 @@ export const ProjectList: React.FC = () => {
     } else {
       await createProject(data);
     }
-    refetch();
+    await refetch();
+    if (!isEditing) setActiveSection('list');
   };
 
   const handleDelete = async (projectId: number | string) => {
@@ -60,8 +63,51 @@ export const ProjectList: React.FC = () => {
     }
   };
 
+  const sectionTabs = (
+    <div role="tablist" aria-label="Dự án" className="flex w-fit gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeSection === 'list'}
+        onClick={() => setActiveSection('list')}
+        className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition ${activeSection === 'list' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+      >
+        <FolderKanban className="h-4 w-4" aria-hidden="true" />
+        Danh sách dự án
+      </button>
+      {canCreateProject() && (
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeSection === 'create'}
+          onClick={handleOpenCreate}
+          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition ${activeSection === 'create' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Tạo dự án
+        </button>
+      )}
+    </div>
+  );
+
+  if (activeSection === 'create' && canCreateProject()) {
+    return (
+      <div className="space-y-4">
+        {sectionTabs}
+        <ProjectFormModal
+          isOpen
+          presentation="page"
+          onClose={() => setActiveSection('list')}
+          onSubmitSuccess={handleSaveProject}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-white/90 backdrop-blur-md border border-slate-100 rounded-3xl p-5 shadow-sm space-y-4">
+    <div className="space-y-4">
+      {sectionTabs}
+      <div className="space-y-4 rounded-3xl border border-slate-100 bg-white/90 p-5 shadow-sm backdrop-blur-md">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-bold text-slate-800">Mức độ hoàn chỉnh dự án</h2>
@@ -204,6 +250,7 @@ export const ProjectList: React.FC = () => {
         initialProject={editingProject}
       />
       <ProjectMembersModal project={selectedMembersProject} onClose={() => setSelectedMembersProject(null)} />
+      </div>
     </div>
   );
 };

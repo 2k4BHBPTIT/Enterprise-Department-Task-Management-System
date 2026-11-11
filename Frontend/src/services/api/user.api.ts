@@ -73,6 +73,9 @@ export const userApi = {
     return mapUser(unwrapResponse(response.data));
   },
   deleteUser: async (id: number | string): Promise<void> => {
-    await apiClient.delete(`/users/${id}`);
+    const response = await apiClient.delete<ApiResponse<unknown> | undefined>(`/users/${id}`);
+    if (response.data && 'success' in response.data) {
+      unwrapResponse(response.data);
+    }
   },
 };
