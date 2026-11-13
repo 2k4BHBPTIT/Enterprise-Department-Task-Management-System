@@ -13,6 +13,10 @@ import {
   Building2,
   RotateCw,
   WandSparkles,
+  CalendarCheck2,
+  Wallet,
+  UserCog,
+  ListTodo,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 
@@ -41,10 +45,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ onRefresh }) => {
   ];
 
   const hrMenuItems = [
-    { id: 'hr-overview', label: 'Tổng quan', sub: 'KPI deadline & điểm đánh giá', icon: LayoutDashboard },
-    { id: 'hr-scorecard', label: 'Nhân sự', sub: 'Bảng điểm chi tiết từng người', icon: Users },
-    { id: 'hr-tasks', label: 'Công việc', sub: 'Danh sách việc + vi phạm deadline', icon: CheckSquare },
-    { id: 'hr-comparison', label: 'So sánh nhân sự', sub: 'Biểu đồ xếp hạng theo điểm', icon: Award },
+    { id: 'hr-overview', label: 'Tổng quan', sub: 'Thống kê và báo cáo nhân sự', icon: LayoutDashboard },
+    { id: 'hr-members', label: 'Nhân sự', sub: 'Hồ sơ và danh sách nhân viên', icon: Users },
+    { id: 'hr-departments', label: 'Phòng ban', sub: 'Cơ cấu tổ chức', icon: Building2 },
+    { id: 'hr-attendance', label: 'Chấm công', sub: 'Check-in và bảng công', icon: CalendarCheck2 },
+    { id: 'hr-payroll', label: 'Lương Công', sub: 'Bảng lương và phúc lợi', icon: Wallet },
+    { id: 'hr-accounts', label: 'Quản lí tài khoản', sub: 'Phân quyền và ủy quyền', icon: UserCog },
+    { id: 'hr-tasks', label: 'Công việc', sub: 'Danh sách việc và deadline', icon: ListTodo },
+    { id: 'hr-scorecard', label: 'Hiệu suất', sub: 'Bảng điểm chi tiết nhân sự', icon: Award },
+    { id: 'hr-comparison', label: 'So sánh nhân sự', sub: 'Xếp hạng theo điểm', icon: BarChart3 },
   ];
 
   const emailMenuItems = [
@@ -56,7 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onRefresh }) => {
     : dashboardMode === 'PM' ? pmMenuItems : dashboardMode === 'HR' ? hrMenuItems : emailMenuItems;
   const workspaceLabel = currentUser.role === 'EMPLOYEE'
     ? 'Employee Workspace'
-    : dashboardMode === 'PM' ? 'PM Dashboard' : dashboardMode === 'HR' ? 'HR Dashboard' : 'Messenger';
+    : dashboardMode === 'PM' ? 'Quản lý dự án' : dashboardMode === 'HR' ? 'Quản lý nhân sự' : 'Messenger';
 
   return (
     <aside className="flex-shrink-0 rounded-2xl border border-slate-200/80 bg-white/90 p-2 shadow-sm backdrop-blur md:p-3 lg:sticky lg:top-[88px] lg:h-[calc(100vh-112px)] lg:w-64 lg:p-4">
@@ -70,7 +79,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onRefresh }) => {
             <h4 className="truncate text-xs font-bold text-slate-800">
               {workspaceLabel}
             </h4>
-            <p className="text-[11px] text-slate-400 truncate">Timezone : Today</p>
+            <p className="text-[11px] text-slate-400 truncate">Ngày: {new Intl.DateTimeFormat('vi-VN').format(new Date())}</p>
           </div>
         </div>
 

@@ -22,6 +22,7 @@ import { HROverview } from './features/hr/HROverview';
 import { HRScorecard } from './features/hr/HRScorecard';
 import { HRTaskList } from './features/hr/HRTaskList';
 import { HRComparison } from './features/hr/HRComparison';
+import { HRModulePlaceholder } from './features/hr/HRModulePlaceholder';
 
 import { MessengerView } from './features/messages/MessengerView';
 import { DepartmentManagement } from './features/departments/DepartmentManagement';
@@ -109,6 +110,11 @@ export const App: React.FC = () => {
                   {activeTab === 'calendar' && <CalendarView />}
                   {activeTab === 'gantt' && <GanttView />}
                   {activeTab === 'hr-overview' && <HROverview />}
+                  {activeTab === 'hr-members' && <MembersWorkload />}
+                  {activeTab === 'hr-departments' && <DepartmentManagement />}
+                  {activeTab === 'hr-attendance' && <HRModulePlaceholder module="attendance" />}
+                  {activeTab === 'hr-payroll' && <HRModulePlaceholder module="payroll" />}
+                  {activeTab === 'hr-accounts' && <PermissionManagement />}
                   {activeTab === 'hr-scorecard' && <HRScorecard />}
                   {activeTab === 'hr-tasks' && <HRTaskList />}
                   {activeTab === 'hr-comparison' && <HRComparison />}

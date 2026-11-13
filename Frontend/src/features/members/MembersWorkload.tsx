@@ -76,6 +76,7 @@ export const MembersWorkload: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [search, setSearch] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('ALL');
+  const [roleFilter, setRoleFilter] = useState('ALL');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -171,10 +172,11 @@ export const MembersWorkload: React.FC = () => {
   const visibleUsers = useMemo(() => users.filter((user) => user.status === 'ACTIVE').filter((user) => {
     const matchesSearch = `${user.full_name || user.name} ${user.email}`.toLowerCase().includes(search.toLowerCase());
     const matchesDepartment = departmentFilter === 'ALL' || String(user.departmentId || user.department_id) === departmentFilter;
+    const matchesRole = roleFilter === 'ALL' || (user.system_role || user.role) === roleFilter;
     const haystack = `${user.full_name || user.name} ${user.email} ${getLocalProfile(user).education} ${getLocalProfile(user).specialization} ${getLocalProfile(user).skills}`.toLowerCase();
     const matchesAdvanced = !advancedSearch.trim() || haystack.includes(advancedSearch.trim().toLowerCase());
-    return matchesSearch && matchesDepartment && matchesAdvanced;
-  }), [users, search, departmentFilter, advancedSearch]);
+    return matchesSearch && matchesDepartment && matchesRole && matchesAdvanced;
+  }), [users, search, departmentFilter, roleFilter, advancedSearch]);
 
   const analyzeCv = async (file?: File) => {
     if (!file) return;
@@ -272,51 +274,75 @@ export const MembersWorkload: React.FC = () => {
       {sectionTabs}
       <div className={activeSection === 'create' ? 'hidden' : 'contents'}>
       {staffError && <div role="alert" className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-xs text-red-700">{staffError}</div>}
-      <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div><h2 className="text-sm font-bold text-slate-800">Nhân sự và khối lượng công việc</h2><p className="text-xs text-slate-400 mt-1">Quản lý tài khoản, phòng ban, công việc đang phụ trách và tình trạng quá hạn</p></div>
+      <section className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm">
+        <div className="border-b border-slate-100 px-5 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div><h2 className="text-sm font-bold text-slate-800">Danh sách nhân viên</h2><p className="mt-1 text-[11px] text-slate-400">Hồ sơ và danh sách nhân viên đang hoạt động</p></div>
+            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">{visibleUsers.length} nhân sự</span>
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            <label className="relative sm:col-span-2 xl:col-span-1">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm kiếm theo tên, phòng ban..." className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-xs outline-none focus:border-blue-400" />
+            </label>
+            <select aria-label="Lọc phòng ban" value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+              <option value="ALL">Tất cả phòng ban</option>
+              {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
+            </select>
+            <select aria-label="Lọc vai trò" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+              <option value="ALL">Tất cả vai trò</option>
+              {['ADMIN', 'MANAGER', 'PROJECT_MANAGER', 'PROJECT_LEADER', 'EMPLOYEE'].map((role) => <option key={role} value={role}>{role.replace(/_/g, ' ')}</option>)}
+            </select>
+          </div>
+          <label className="mt-3 block">
+            <span className="sr-only">Tìm kiếm nâng cao bằng cấp, chuyên môn, kỹ năng</span>
+            <input value={advancedSearch} onChange={(event) => setAdvancedSearch(event.target.value)} placeholder="Tìm theo bằng cấp, chuyên môn hoặc kỹ năng..." className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none focus:border-blue-400" />
+          </label>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
-          <label className="relative"><Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm tên hoặc email..." className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-400" /></label>
-          <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)} className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"><option value="ALL">Tất cả phòng ban</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select>
-        </div>
-        <label className="mt-3 block">
-          <span className="mb-1 block text-[11px] font-semibold text-slate-500">Tìm kiếm nâng cao (bằng cấp, chuyên môn, kỹ năng)</span>
-          <input value={advancedSearch} onChange={(event) => setAdvancedSearch(event.target.value)} placeholder='Ví dụ: "kỹ sư CNTT", React, chứng chỉ...' className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none focus:border-blue-400" />
-        </label>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {visibleUsers.map((user) => {
-          const userTasks = tasks.filter((task) => String(task.assigneeId ?? task.assignee_id) === String(user.id));
-          const active = userTasks.filter((task) => !['COMPLETED', 'CANCELLED'].includes(task.status)).length;
-          const overdue = userTasks.filter((task) => task.status === 'OVERDUE' || (task.overdueDays || 0) > 0).length;
-          const completed = userTasks.filter((task) => task.status === 'COMPLETED').length;
-          const completion = userTasks.length ? Math.round(completed / userTasks.length * 100) : 0;
-          return (
-            <div key={user.id} className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0"><div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold">{(user.full_name || user.name || '?').charAt(0)}</div><div className="min-w-0"><div className="text-sm font-bold text-slate-800 truncate">{user.full_name || user.name}</div><div className="text-[11px] text-slate-400 truncate">{user.email}</div></div></div>
-                <div className="flex gap-1">
-                  <button title="Xem chi tiết và công việc đang làm" onClick={() => setSelectedUser(user)} className="p-1.5 rounded-lg hover:bg-blue-50"><Eye className="w-3.5 h-3.5 text-blue-600" /></button>
-                  {canManageStaff() && <><button title="Sửa nhân sự" onClick={() => openEdit(user)} className="p-1.5 rounded-lg hover:bg-blue-50"><Edit2 className="w-3.5 h-3.5 text-blue-600" /></button><button title={deletingUserId === String(user.id) ? 'Đang ngừng hoạt động' : 'Ngừng hoạt động'} aria-label={`Ngừng hoạt động ${user.full_name || user.name}`} disabled={deletingUserId === String(user.id)} onClick={() => deleteUser(user)} className="p-1.5 rounded-lg hover:bg-red-50 disabled:cursor-wait disabled:opacity-50">{deletingUserId === String(user.id) ? <LoaderCircle className="w-3.5 h-3.5 animate-spin text-red-500" /> : <Trash2 className="w-3.5 h-3.5 text-red-500" />}</button></>}
-                </div>
-              </div>
-              <div className="flex gap-2 mt-3"><span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-600">{user.system_role || user.role}</span><span className="px-2 py-0.5 rounded-full text-[10px] bg-blue-50 text-blue-600">{user.departmentName || user.department_name || 'Chưa có phòng ban'}</span></div>
-              <div className="grid grid-cols-3 gap-2 mt-4 text-center">
-                {[['Đang làm', active, 'text-blue-600'], ['Quá hạn', overdue, 'text-red-600'], ['Hoàn thành', completed, 'text-emerald-600']].map(([label, value, color]) => <div key={String(label)} className="bg-slate-50 rounded-2xl p-2"><div className={`text-lg font-bold ${color}`}>{value as number}</div><div className="text-[10px] text-slate-400">{String(label)}</div></div>)}
-              </div>
-              <div className="mt-4"><div className="flex justify-between text-[10px] text-slate-500 mb-1"><span>Hoàn thành công việc</span><b>{completion}%</b></div><div className="h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: `${completion}%` }} /></div></div>
-              {(() => {
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-left text-xs">
+            <thead className="bg-slate-50 text-slate-500">
+              <tr>
+                <th className="px-5 py-3 font-semibold">Họ và tên</th>
+                <th className="px-4 py-3 font-semibold">Email</th>
+                <th className="px-4 py-3 font-semibold">Phòng ban</th>
+                <th className="px-4 py-3 font-semibold">Chức vụ</th>
+                <th className="px-4 py-3 font-semibold">Vai trò</th>
+                <th className="px-5 py-3 text-right font-semibold">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {visibleUsers.map((user) => {
                 const profile = getLocalProfile(user);
-                const activeTasks = userTasks.filter((task) => !['COMPLETED', 'CANCELLED'].includes(task.status));
-                return <div className="mt-3 border-t border-slate-100 pt-3"><div className="text-[10px] text-slate-400">{profile.specialization || 'Chưa cập nhật chuyên môn'} • {profile.experienceYears || 0} năm kinh nghiệm</div><div className="mt-1 truncate text-[10px] font-medium text-slate-600">{activeTasks[0] ? `Đang làm: ${activeTasks[0].title}` : 'Hiện không có công việc đang thực hiện'}</div></div>;
-              })()}
-            </div>
-          );
-        })}
-      </div>
-      {!visibleUsers.length && <div className="bg-white rounded-3xl p-16 text-center text-sm text-slate-400"><Users className="w-8 h-8 mx-auto mb-2" />Không tìm thấy nhân sự phù hợp.</div>}
+                return (
+                  <tr key={user.id} className="transition hover:bg-slate-50/70">
+                    <td className="px-5 py-3.5">
+                      <button type="button" onClick={() => setSelectedUser(user)} className="flex items-center gap-2.5 text-left">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">{(user.full_name || user.name || '?').charAt(0)}</span>
+                        <span className="font-semibold text-slate-800">{user.full_name || user.name}</span>
+                      </button>
+                    </td>
+                    <td className="px-4 py-3.5 text-slate-500">{user.email}</td>
+                    <td className="px-4 py-3.5 text-slate-600">{user.departmentName || user.department_name || 'Chưa có phòng ban'}</td>
+                    <td className="px-4 py-3.5 text-slate-600">{profile.specialization || '—'}</td>
+                    <td className="px-4 py-3.5"><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-600">{(user.system_role || user.role).replace(/_/g, ' ')}</span></td>
+                    <td className="px-5 py-3.5">
+                      <div className="flex justify-end gap-1">
+                        <button type="button" title="Xem chi tiết" aria-label={`Xem ${user.full_name || user.name}`} onClick={() => setSelectedUser(user)} className="rounded-lg p-1.5 hover:bg-blue-50"><Eye className="h-3.5 w-3.5 text-blue-600" /></button>
+                        {canManageStaff() && <>
+                          <button type="button" title="Sửa nhân sự" aria-label={`Sửa ${user.full_name || user.name}`} onClick={() => openEdit(user)} className="rounded-lg p-1.5 hover:bg-blue-50"><Edit2 className="h-3.5 w-3.5 text-blue-600" /></button>
+                          <button type="button" title={deletingUserId === String(user.id) ? 'Đang ngừng hoạt động' : 'Ngừng hoạt động'} aria-label={`Ngừng hoạt động ${user.full_name || user.name}`} disabled={deletingUserId === String(user.id)} onClick={() => deleteUser(user)} className="rounded-lg p-1.5 hover:bg-red-50 disabled:cursor-wait disabled:opacity-50">{deletingUserId === String(user.id) ? <LoaderCircle className="h-3.5 w-3.5 animate-spin text-red-500" /> : <Trash2 className="h-3.5 w-3.5 text-red-500" />}</button>
+                        </>}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!visibleUsers.length && <tr><td colSpan={6} className="px-5 py-14 text-center text-slate-400"><Users className="mx-auto mb-2 h-7 w-7" />Không tìm thấy nhân sự phù hợp.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       {selectedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onMouseDown={() => setSelectedUser(null)}>

@@ -38,7 +38,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   dashboardMode: 'PM',
   activeTab: 'overview',
 
-  setCurrentUser: (user: User) => set({ currentUser: user }),
+  setCurrentUser: (user: User) => set(user.role === 'ADMIN'
+    ? { currentUser: user, dashboardMode: 'HR', activeTab: 'hr-overview' }
+    : { currentUser: user }),
 
   setRole: (role: Role) => {
     const user = get().currentUser;
