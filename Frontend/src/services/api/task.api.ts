@@ -1,5 +1,5 @@
 import { apiClient, ApiResponse, unwrapResponse } from './client';
-import { Task, TaskStatus, EisenhowerQuadrant, GlobalFilterParams } from '../../types';
+import { Task, TaskStatus, GlobalFilterParams } from '../../types';
 import { TaskFormData } from '../../schema/task.schema';
 import { ReassignFormData } from '../../schema/reassign.schema';
 
@@ -34,9 +34,6 @@ const mapTask = (task: BackendTask): Task => {
     rawTaskType && ['PLANNING', 'DEVELOPMENT', 'DESIGN', 'MARKETING', 'TESTING', 'OTHER'].includes(rawTaskType)
       ? rawTaskType as Task['taskType']
       : 'OTHER';
-  const quadrant: EisenhowerQuadrant =
-    priority === 'URGENT' ? 'Q1' : priority === 'HIGH' ? 'Q2' : 'Q4';
-
   return {
     id: task.id,
     project_id: task.projectId,
@@ -53,7 +50,6 @@ const mapTask = (task: BackendTask): Task => {
     isImportant: priority === 'HIGH' || priority === 'URGENT',
     is_urgent: priority === 'URGENT',
     isUrgent: priority === 'URGENT',
-    quadrant,
     progress_percent: task.progressPercent ?? task.progress_percent ?? (status === 'COMPLETED' ? 100 : 0),
     progressPercent: task.progressPercent ?? task.progress_percent ?? (status === 'COMPLETED' ? 100 : 0),
     assignee_id: task.assigneeId ?? 0,

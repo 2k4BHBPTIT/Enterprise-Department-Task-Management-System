@@ -47,7 +47,7 @@ export const HROverview: React.FC = () => {
   }, [departments, users]);
 
   const stats = [
-    { title: 'Tổng nhân sự', value: isLoading ? '—' : users.length, note: 'Tài khoản đang hoạt động', icon: Users, tone: 'blue', onClick: () => setActiveTab('hr-members') },
+    { title: 'Tổng nhân sự', value: isLoading ? '—' : users.length, note: 'Tài khoản đang hoạt động', icon: Users, tone: 'blue', onClick: () => setActiveTab('members') },
     { title: 'Có mặt hôm nay', value: '—', note: 'Chưa có dữ liệu chấm công', icon: UserRoundCheck, tone: 'emerald', onClick: () => setActiveTab('hr-attendance') },
     { title: 'Đi muộn / Vắng', value: '—', note: 'Chưa có dữ liệu chấm công', icon: UserRoundX, tone: 'amber', onClick: () => setActiveTab('hr-attendance') },
     { title: 'Tạm nghỉ / Phép', value: '—', note: 'Chưa có API đơn nghỉ phép', icon: CalendarOff, tone: 'sky', onClick: () => setActiveTab('hr-attendance') },

@@ -11,10 +11,8 @@ import { TaskList } from './features/tasks/TaskList';
 import { ProjectList } from './features/projects/ProjectList';
 import { ProjectDigitization } from './features/projects/ProjectDigitization';
 import { MembersWorkload } from './features/members/MembersWorkload';
-import { EisenhowerView } from './features/eisenhower/EisenhowerView';
 import { AlertsView } from './features/alerts/AlertsView';
 import { CalendarView } from './features/calendar/CalendarView';
-import { GanttView } from './features/gantt/GanttView';
 import { PermissionManagement } from './features/permissions/PermissionManagement';
 
 // HR Views
@@ -72,10 +70,15 @@ export const App: React.FC = () => {
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('accessToken');
+    setIsLoggedIn(false);
+  };
+
   return (
     <div className="min-h-screen bg-[#eef3f8] font-['Plus_Jakarta_Sans',sans-serif]">
       {/* Top Header */}
-      <Header />
+      <Header onLogout={handleLogout} />
 
       {/* Main Body with Sidebar + View Content */}
       <div className="mx-auto flex max-w-[1600px] flex-col gap-4 px-3 py-4 sm:px-5 lg:flex-row lg:px-7 lg:py-5">
@@ -105,16 +108,11 @@ export const App: React.FC = () => {
                   {activeTab === 'members' && <MembersWorkload />}
                   {activeTab === 'departments' && <DepartmentManagement />}
                   {activeTab === 'permissions' && <PermissionManagement />}
-                  {activeTab === 'eisenhower' && <EisenhowerView />}
                   {activeTab === 'alerts' && <AlertsView />}
                   {activeTab === 'calendar' && <CalendarView />}
-                  {activeTab === 'gantt' && <GanttView />}
                   {activeTab === 'hr-overview' && <HROverview />}
-                  {activeTab === 'hr-members' && <MembersWorkload />}
-                  {activeTab === 'hr-departments' && <DepartmentManagement />}
                   {activeTab === 'hr-attendance' && <HRModulePlaceholder module="attendance" />}
                   {activeTab === 'hr-payroll' && <HRModulePlaceholder module="payroll" />}
-                  {activeTab === 'hr-accounts' && <PermissionManagement />}
                   {activeTab === 'hr-scorecard' && <HRScorecard />}
                   {activeTab === 'hr-tasks' && <HRTaskList />}
                   {activeTab === 'hr-comparison' && <HRComparison />}

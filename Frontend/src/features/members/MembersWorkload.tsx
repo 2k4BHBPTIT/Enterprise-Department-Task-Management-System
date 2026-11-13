@@ -69,7 +69,7 @@ const emptyForm = {
 };
 
 export const MembersWorkload: React.FC = () => {
-  const { canManageStaff, isAdmin } = useAuthStore();
+  const { canManageStaff, isAdmin, dashboardMode } = useAuthStore();
   const [activeSection, setActiveSection] = useState<'staff' | 'create' | 'permissions'>('staff');
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -245,7 +245,7 @@ export const MembersWorkload: React.FC = () => {
           Thêm nhân sự
         </button>
       )}
-      {isAdmin() && (
+      {isAdmin() && dashboardMode !== 'HR' && (
         <button
           type="button"
           role="tab"

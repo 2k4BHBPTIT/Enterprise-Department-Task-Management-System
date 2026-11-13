@@ -92,8 +92,6 @@ export type TaskStatus =
 
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 export type TaskType = 'PLANNING' | 'DEVELOPMENT' | 'DESIGN' | 'MARKETING' | 'TESTING' | 'OTHER';
-export type EisenhowerQuadrant = 'Q1' | 'Q2' | 'Q3' | 'Q4';
-
 export interface Task {
   id: number | string;
   project_id: number | string;
@@ -114,7 +112,6 @@ export interface Task {
   isImportant: boolean; // Alias
   is_urgent: boolean;
   isUrgent: boolean; // Alias
-  quadrant: EisenhowerQuadrant;
   progress_percent: number;
   progressPercent: number; // Alias
   assignee_id: number | string;

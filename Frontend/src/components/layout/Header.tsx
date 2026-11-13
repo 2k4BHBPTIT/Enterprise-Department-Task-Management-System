@@ -1,8 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuthStore } from '../../store/auth.store';
-import { Bell, ChevronDown, CheckCheck, Layers3, ShieldCheck } from 'lucide-react';
+import { Bell, ChevronDown, CheckCheck, Layers3, LogOut, ShieldCheck } from 'lucide-react';
 import { taskApi } from '../../services/api/task.api';
 import { Task } from '../../types';
+
+interface HeaderProps {
+  onLogout: () => void;
+}
 
 interface TaskNotification {
   id: string;
@@ -12,16 +16,18 @@ interface TaskNotification {
   detail: string;
 }
 
-export const Header: React.FC = () => {
+export const Header: React.FC<HeaderProps> = ({ onLogout }) => {
   const { dashboardMode, setDashboardMode, setActiveTab, currentUser } = useAuthStore();
   const isEmployee = currentUser.role === 'EMPLOYEE';
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [readIds, setReadIds] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('readNotifications') || '[]') as string[]; }
     catch { return []; }
   });
   const notificationRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
   const modes = [
     { id: 'PM' as const, label: 'Dự án' },
     { id: 'HR' as const, label: 'Nhân sự' },
@@ -57,6 +63,7 @@ export const Header: React.FC = () => {
   useEffect(() => {
     const closeOnOutside = (event: MouseEvent) => {
       if (!notificationRef.current?.contains(event.target as Node)) setNotificationsOpen(false);
+      if (!profileRef.current?.contains(event.target as Node)) setProfileMenuOpen(false);
     };
     document.addEventListener('mousedown', closeOnOutside);
     return () => document.removeEventListener('mousedown', closeOnOutside);
@@ -145,15 +152,39 @@ export const Header: React.FC = () => {
             </div>
           </div>
         )}
-        <div className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100 text-xs font-bold text-blue-700">
-            {currentUser.name.charAt(0).toUpperCase()}
-          </span>
-          <div className="hidden min-w-0 sm:block">
-            <p className="max-w-28 truncate text-xs font-bold text-slate-800">{currentUser.name}</p>
-            <p className="flex items-center gap-1 text-[10px] text-slate-400"><ShieldCheck className="h-3 w-3" aria-hidden="true" />{isEmployee ? 'Nhân viên' : currentUser.role}</p>
-          </div>
-          <ChevronDown className="hidden h-3.5 w-3.5 text-slate-400 sm:block" aria-hidden="true" />
+        <div ref={profileRef} className="relative">
+          <button
+            type="button"
+            aria-label="Mở menu tài khoản"
+            aria-expanded={profileMenuOpen}
+            onClick={() => setProfileMenuOpen((open) => !open)}
+            className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 text-left transition hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-500"
+          >
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100 text-xs font-bold text-blue-700">
+              {currentUser.name.charAt(0).toUpperCase()}
+            </span>
+            <span className="hidden min-w-0 sm:block">
+              <span className="block max-w-28 truncate text-xs font-bold text-slate-800">{currentUser.name}</span>
+              <span className="flex items-center gap-1 text-[10px] text-slate-400"><ShieldCheck className="h-3 w-3" aria-hidden="true" />{isEmployee ? 'Nhân viên' : currentUser.role}</span>
+            </span>
+            <ChevronDown className="hidden h-3.5 w-3.5 text-slate-400 sm:block" aria-hidden="true" />
+          </button>
+          {profileMenuOpen && (
+            <div role="menu" aria-label="Menu tài khoản" className="absolute right-0 top-12 z-50 min-w-48 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setProfileMenuOpen(false);
+                  onLogout();
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold text-rose-600 transition hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              >
+                <LogOut className="h-4 w-4" aria-hidden="true" />
+                Đăng xuất
+              </button>
+            </div>
+          )}
         </div>
       </div>
       </div>
