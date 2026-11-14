@@ -33,6 +33,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onRefresh }) => {
   const managerMenuItems = [
     { id: 'overview', label: 'Tổng quan', sub: 'Tiến độ, deadline và workload team', icon: LayoutDashboard },
     { id: 'projects', label: 'Dự án của tôi', sub: 'Các dự án bạn đang chủ trì', icon: FolderGit2 },
+    { id: 'timeline', label: 'Timeline dự án', sub: 'Theo dõi tiến độ theo ngày/tháng/năm', icon: CalendarCheck2 },
     { id: 'manager-team', label: 'Nhân sự bộ phận', sub: 'Chức vụ và workload nhân viên', icon: Users },
     { id: 'calendar', label: 'Lịch làm việc', sub: 'Deadline các dự án phụ trách', icon: Calendar },
   ];
@@ -40,6 +41,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onRefresh }) => {
   const pmMenuItems = [
     { id: 'overview', label: 'Tổng quan', sub: 'KPI + biểu đồ + cảnh báo', icon: LayoutDashboard },
     { id: 'projects', label: 'Dự án', sub: 'Danh sách và tiến độ dự án', icon: FolderGit2 },
+    { id: 'timeline', label: 'Timeline', sub: 'Gantt theo ngày/tháng/năm', icon: CalendarCheck2 },
     { id: 'alerts', label: 'Cảnh báo', sub: 'Quá hạn / sắp đến hạn / log...', icon: Bell },
     { id: 'calendar', label: 'Lịch', sub: 'Lịch công việc dạng calendar', icon: Calendar },
   ];

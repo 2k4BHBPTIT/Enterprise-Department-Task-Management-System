@@ -14,6 +14,7 @@ import { MembersWorkload } from './features/members/MembersWorkload';
 import { ManagerTeam } from './features/members/ManagerTeam';
 import { AlertsView } from './features/alerts/AlertsView';
 import { CalendarView } from './features/calendar/CalendarView';
+import { ProjectTimelineView } from './features/timeline/ProjectTimelineView';
 import { EmployeeAttendance } from './features/hr/EmployeeAttendance';
 import { PermissionManagement } from './features/permissions/PermissionManagement';
 
@@ -116,6 +117,7 @@ export const App: React.FC = () => {
                   {activeTab === 'departments' && <DepartmentManagement />}
                   {activeTab === 'permissions' && <PermissionManagement />}
                   {activeTab === 'alerts' && <AlertsView />}
+                  {activeTab === 'timeline' && <ProjectTimelineView managerId={currentUser.role === 'MANAGER' ? String(currentUser.id) : undefined} />}
                   {activeTab === 'calendar' && <CalendarView managerId={currentUser.role === 'MANAGER' ? String(currentUser.id) : undefined} />}
                   {activeTab === 'hr-overview' && <HROverview />}
                   {activeTab === 'hr-attendance' && <HRModulePlaceholder module="attendance" />}
