@@ -8,9 +8,7 @@ import { useFilterStore } from '../../store/filter.store';
 
 const roles: Array<{ value: Role; label: string; description: string }> = [
   { value: 'ADMIN', label: 'Admin', description: 'Toàn quyền quản trị hệ thống' },
-  { value: 'MANAGER', label: 'Manager', description: 'Quản lý dự án, công việc và nhân sự' },
-  { value: 'PROJECT_MANAGER', label: 'Project Manager', description: 'Quản lý dự án và phân công công việc' },
-  { value: 'PROJECT_LEADER', label: 'Project Leader', description: 'Theo dõi và cập nhật công việc dự án' },
+  { value: 'MANAGER', label: 'Manager', description: 'Quản lý dự án, công việc và nhân sự; vai trò phụ trách được gán riêng theo từng dự án' },
   { value: 'EMPLOYEE', label: 'Employee', description: 'Thực hiện và cập nhật công việc được giao' },
 ];
 
@@ -75,7 +73,7 @@ export const PermissionManagement: React.FC = () => {
       <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm">
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center"><ShieldCheck className="w-5 h-5" /></div>
-          <div><h2 className="text-sm font-bold text-slate-800">Quản lý vai trò người dùng</h2><p className="text-xs text-slate-400 mt-1">Thay đổi vai trò sẽ ảnh hưởng trực tiếp đến quyền thêm, sửa và xóa trên các trang quản lý.</p></div>
+          <div><h2 className="text-sm font-bold text-slate-800">Quản lý vai trò người dùng</h2><p className="text-xs text-slate-400 mt-1">Vai trò hệ thống gồm Admin, Manager và Employee. Vai trò Project Leader/Project Manager được gán riêng trong từng dự án.</p></div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
           <label className="relative"><Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" /><input value={search} onChange={(event) => setFilter('searchTerm', event.target.value)} placeholder="Tìm nhân sự..." className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-400" /></label>
@@ -92,6 +90,7 @@ export const PermissionManagement: React.FC = () => {
           <div className="divide-y divide-slate-100">
             {visibleUsers.map((user) => {
               const currentRole = user.system_role || user.role;
+              const isLegacyRole = currentRole === 'PROJECT_MANAGER' || currentRole === 'PROJECT_LEADER';
               const department = departments.find((item) => String(item.id) === String(user.departmentId ?? user.department_id));
               const isCurrentAccount = String(user.id) === String(currentUser.id);
               return (
@@ -107,6 +106,7 @@ export const PermissionManagement: React.FC = () => {
                     className="md:w-52 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs disabled:opacity-60"
                     title={isCurrentAccount ? 'Không thể tự thay đổi vai trò tài khoản hiện tại' : undefined}
                   >
+                    {isLegacyRole && <option value={currentRole}>{currentRole.replace(/_/g, ' ')} (vai trò cũ - giữ nguyên)</option>}
                     {roles.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
                   </select>
                 </div>

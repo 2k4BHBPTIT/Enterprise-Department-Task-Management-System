@@ -6,16 +6,12 @@ import {
   Users,
   Bell,
   Calendar,
-  BarChart3,
-  Award,
   MessageCircle,
   Building2,
   RotateCw,
-  WandSparkles,
   CalendarCheck2,
   Wallet,
   UserCog,
-  ListTodo,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 
@@ -28,14 +24,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ onRefresh }) => {
   const employeeMenuItems = [
     { id: 'overview', label: 'Tổng quan', sub: 'Công việc và tiến độ của bạn', icon: LayoutDashboard },
     { id: 'tasks', label: 'Công việc của tôi', sub: 'Cập nhật trạng thái và tiến độ', icon: CheckSquare },
+    { id: 'employee-projects', label: 'Dự án tham gia', sub: 'Dự án và thông tin công việc', icon: FolderGit2 },
+    { id: 'calendar', label: 'Lịch cá nhân', sub: 'Deadline theo tuần và tháng', icon: Calendar },
+    { id: 'employee-attendance', label: 'Chấm công / Đơn từ', sub: 'Check-in và gửi yêu cầu', icon: CalendarCheck2 },
     { id: 'messages', label: 'Nhắn tin', sub: 'Trò chuyện cùng đồng nghiệp', icon: MessageCircle },
+  ];
+
+  const managerMenuItems = [
+    { id: 'overview', label: 'Tổng quan', sub: 'Tiến độ, deadline và workload team', icon: LayoutDashboard },
+    { id: 'projects', label: 'Dự án của tôi', sub: 'Các dự án bạn đang chủ trì', icon: FolderGit2 },
+    { id: 'manager-team', label: 'Nhân sự bộ phận', sub: 'Chức vụ và workload nhân viên', icon: Users },
+    { id: 'calendar', label: 'Lịch làm việc', sub: 'Deadline các dự án phụ trách', icon: Calendar },
   ];
 
   const pmMenuItems = [
     { id: 'overview', label: 'Tổng quan', sub: 'KPI + biểu đồ + cảnh báo', icon: LayoutDashboard },
-    { id: 'projects', label: 'Dự án', sub: 'Tiến độ dự án + click xem G...', icon: FolderGit2 },
-    { id: 'members', label: 'Nhân sự', sub: 'Workload & quá hạn theo ng...', icon: Users },
-    { id: 'departments', label: 'Phòng ban', sub: 'Cơ cấu và quản lý phòng ban', icon: Building2 },
+    { id: 'projects', label: 'Dự án', sub: 'Danh sách và tiến độ dự án', icon: FolderGit2 },
     { id: 'alerts', label: 'Cảnh báo', sub: 'Quá hạn / sắp đến hạn / log...', icon: Bell },
     { id: 'calendar', label: 'Lịch', sub: 'Lịch công việc dạng calendar', icon: Calendar },
   ];
@@ -47,9 +51,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onRefresh }) => {
     { id: 'hr-attendance', label: 'Chấm công', sub: 'Check-in và bảng công', icon: CalendarCheck2 },
     { id: 'hr-payroll', label: 'Lương Công', sub: 'Bảng lương và phúc lợi', icon: Wallet },
     { id: 'permissions', label: 'Quản lí tài khoản', sub: 'Phân quyền và ủy quyền', icon: UserCog },
-    { id: 'hr-tasks', label: 'Công việc', sub: 'Danh sách việc và deadline', icon: ListTodo },
-    { id: 'hr-scorecard', label: 'Hiệu suất', sub: 'Bảng điểm chi tiết nhân sự', icon: Award },
-    { id: 'hr-comparison', label: 'So sánh nhân sự', sub: 'Xếp hạng theo điểm', icon: BarChart3 },
   ];
 
   const emailMenuItems = [
@@ -58,9 +59,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ onRefresh }) => {
 
   const menuItems = currentUser.role === 'EMPLOYEE'
     ? employeeMenuItems
+    : currentUser.role === 'MANAGER' ? managerMenuItems
     : dashboardMode === 'PM' ? pmMenuItems : dashboardMode === 'HR' ? hrMenuItems : emailMenuItems;
   const workspaceLabel = currentUser.role === 'EMPLOYEE'
     ? 'Employee Workspace'
+    : currentUser.role === 'MANAGER' ? 'Manager Workspace'
     : dashboardMode === 'PM' ? 'Quản lý dự án' : dashboardMode === 'HR' ? 'Quản lý nhân sự' : 'Messenger';
 
   return (
@@ -69,7 +72,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onRefresh }) => {
         {/* Profile Card Header */}
         <div className="mb-3 hidden items-center gap-3 rounded-xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 p-2.5 lg:flex">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-xs font-bold text-white shadow-sm shadow-blue-200">
-            {currentUser.role === 'EMPLOYEE' ? 'ME' : dashboardMode === 'PM' ? 'PM' : dashboardMode === 'HR' ? 'HR' : 'SYS'}
+            {currentUser.role === 'EMPLOYEE' ? 'ME' : currentUser.role === 'MANAGER' ? 'MG' : dashboardMode === 'PM' ? 'PM' : dashboardMode === 'HR' ? 'HR' : 'SYS'}
           </div>
           <div className="flex-1 min-w-0">
             <h4 className="truncate text-xs font-bold text-slate-800">
@@ -104,21 +107,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onRefresh }) => {
                     </div>
                   </div>
                 </button>
-                {dashboardMode === 'PM' && item.id === 'projects' && (
-                  <button
-                    onClick={() => setActiveTab('project-digitization')}
-                    aria-current={activeTab === 'project-digitization' ? 'page' : undefined}
-                    title="Số hóa dự án: AI lập kế hoạch từ mô tả hoặc tài liệu"
-                    className={`group flex min-w-max items-center gap-3 rounded-xl py-2 pl-3 pr-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 lg:ml-4 lg:w-[calc(100%_-_1rem)] lg:min-w-0 lg:pl-4 ${
-                      activeTab === 'project-digitization'
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-slate-500 hover:bg-slate-100/80 hover:text-slate-900'
-                    }`}
-                  >
-                    <WandSparkles className={`h-4 w-4 flex-shrink-0 ${activeTab === 'project-digitization' ? 'text-blue-600' : 'text-slate-400 group-hover:text-blue-600'}`} aria-hidden="true" />
-                    <span className="hidden truncate text-xs lg:block">Số hóa dự án</span>
-                  </button>
-                )}
               </div>
             );
           })}

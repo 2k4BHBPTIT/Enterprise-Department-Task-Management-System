@@ -20,6 +20,8 @@ interface BackendTask {
   dependencies?: Array<{ id: number }>;
   taskType?: string;
   type?: string;
+  startDate?: string;
+  start_date?: string;
   departmentId?: number;
   departmentName?: string;
   progressPercent?: number;
@@ -59,6 +61,8 @@ const mapTask = (task: BackendTask): Task => {
     follower_ids: task.followers?.map((user) => user.id) || [],
     followerIds: task.followers?.map((user) => String(user.id)) || [],
     dependencyIds: task.dependencies?.map((dependency) => String(dependency.id)) || [],
+    start_date: task.startDate || task.start_date,
+    startDate: task.startDate || task.start_date,
     deadline: task.deadline || '',
     dueDate: task.deadline || '',
     overdueDays: task.overdueDays ?? (task.overdue ? 1 : 0),
@@ -81,6 +85,7 @@ const toBackendTask = (data: TaskUpdateData) => ({
   priority: data.priority,
   status: data.status,
   assigneeId: data.assigneeId ? Number(data.assigneeId) : undefined,
+  startDate: data.startDate ? `${data.startDate}T00:00:00` : undefined,
   deadline: data.dueDate ? `${data.dueDate}T23:59:59` : undefined,
   followerUserIds: data.followerIds?.map(Number),
   dependencyTaskIds: data.dependencyIds?.map(Number),
@@ -170,6 +175,9 @@ export const taskApi = {
       priority: task.priority,
       status,
       assigneeId: Number(task.assigneeId ?? task.assignee_id) || undefined,
+      startDate: task.startDate || task.start_date
+        ? `${String(task.startDate || task.start_date).slice(0, 10)}T00:00:00`
+        : undefined,
       deadline: (task.deadline || task.dueDate)
         ? `${String(task.deadline || task.dueDate).slice(0, 10)}T23:59:59`
         : undefined,

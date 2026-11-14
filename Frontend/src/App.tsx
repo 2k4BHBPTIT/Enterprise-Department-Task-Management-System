@@ -9,10 +9,12 @@ import { PMOverview } from './features/dashboard/PMOverview';
 import { EmployeeOverview } from './features/dashboard/EmployeeOverview';
 import { TaskList } from './features/tasks/TaskList';
 import { ProjectList } from './features/projects/ProjectList';
-import { ProjectDigitization } from './features/projects/ProjectDigitization';
+import { EmployeeProjects } from './features/projects/EmployeeProjects';
 import { MembersWorkload } from './features/members/MembersWorkload';
+import { ManagerTeam } from './features/members/ManagerTeam';
 import { AlertsView } from './features/alerts/AlertsView';
 import { CalendarView } from './features/calendar/CalendarView';
+import { EmployeeAttendance } from './features/hr/EmployeeAttendance';
 import { PermissionManagement } from './features/permissions/PermissionManagement';
 
 // HR Views
@@ -98,18 +100,23 @@ export const App: React.FC = () => {
           ) : (
             <div className="min-w-0 animate-fade-in motion-reduce:animate-none">
               {currentUser.role === 'EMPLOYEE' ? (
-                activeTab === 'messages' ? <MessengerView /> : activeTab === 'tasks' ? <TaskList /> : <EmployeeOverview />
+                activeTab === 'messages' ? <MessengerView />
+                  : activeTab === 'tasks' ? <TaskList />
+                    : activeTab === 'employee-projects' ? <EmployeeProjects />
+                      : activeTab === 'calendar' ? <CalendarView assigneeId={String(currentUser.id)} />
+                        : activeTab === 'employee-attendance' ? <EmployeeAttendance />
+                          : <EmployeeOverview />
               ) : (
                 <>
                   {activeTab === 'overview' && <PMOverview />}
                   {activeTab === 'tasks' && <TaskList />}
                   {activeTab === 'projects' && <ProjectList />}
-                  {activeTab === 'project-digitization' && <ProjectDigitization />}
                   {activeTab === 'members' && <MembersWorkload />}
+                  {activeTab === 'manager-team' && currentUser.role === 'MANAGER' && <ManagerTeam />}
                   {activeTab === 'departments' && <DepartmentManagement />}
                   {activeTab === 'permissions' && <PermissionManagement />}
                   {activeTab === 'alerts' && <AlertsView />}
-                  {activeTab === 'calendar' && <CalendarView />}
+                  {activeTab === 'calendar' && <CalendarView managerId={currentUser.role === 'MANAGER' ? String(currentUser.id) : undefined} />}
                   {activeTab === 'hr-overview' && <HROverview />}
                   {activeTab === 'hr-attendance' && <HRModulePlaceholder module="attendance" />}
                   {activeTab === 'hr-payroll' && <HRModulePlaceholder module="payroll" />}

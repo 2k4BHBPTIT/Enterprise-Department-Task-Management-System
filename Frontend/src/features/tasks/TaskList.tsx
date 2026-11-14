@@ -35,6 +35,9 @@ export const TaskList: React.FC = () => {
   const [progressError, setProgressError] = useState('');
   const [progressSavedId, setProgressSavedId] = useState<number | string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<TaskStatus>('TODO');
+  const [progressDrafts, setProgressDrafts] = useState<Record<string, number>>({});
+  const [inlineSavingId, setInlineSavingId] = useState<number | string | null>(null);
+  const [inlineError, setInlineError] = useState('');
 
   const handleOpenCreate = () => {
     setEditingTask(null);
@@ -106,6 +109,54 @@ export const TaskList: React.FC = () => {
     return task.progressPercent ?? task.progress_percent ?? 0;
   };
 
+  const saveInlineProgress = async (task: Task, progress: number) => {
+    const status = progress >= 100
+      ? 'COMPLETED'
+      : task.status === 'COMPLETED'
+        ? 'IN_PROGRESS'
+        : progress > 0 && task.status === 'TODO'
+          ? 'IN_PROGRESS'
+          : task.status;
+    setInlineSavingId(task.id);
+    setInlineError('');
+    try {
+      await taskApi.updateTaskProgress(task.id, progress, status, task);
+      const stored = JSON.parse(localStorage.getItem('taskProgressOverrides') || '{}') as Record<string, number>;
+      stored[String(task.id)] = progress;
+      localStorage.setItem('taskProgressOverrides', JSON.stringify(stored));
+      setProgressDrafts((drafts) => ({ ...drafts, [String(task.id)]: progress }));
+      setProgressSavedId(task.id);
+      await refetch();
+    } catch (error) {
+      setInlineError(error instanceof Error ? error.message : 'Không thể cập nhật tiến độ công việc.');
+    } finally {
+      setInlineSavingId(null);
+    }
+  };
+
+  const saveInlineStatus = async (task: Task, status: TaskStatus) => {
+    setInlineSavingId(task.id);
+    setInlineError('');
+    try {
+      await taskApi.updateTaskStatus(task.id, status);
+      const progress = status === 'COMPLETED'
+        ? 100
+        : status === 'TODO' || (status === 'IN_PROGRESS' && getProgress(task) >= 100)
+          ? 0
+          : getProgress(task);
+      const stored = JSON.parse(localStorage.getItem('taskProgressOverrides') || '{}') as Record<string, number>;
+      stored[String(task.id)] = progress;
+      localStorage.setItem('taskProgressOverrides', JSON.stringify(stored));
+      setProgressDrafts((drafts) => ({ ...drafts, [String(task.id)]: progress }));
+      setProgressSavedId(task.id);
+      await refetch();
+    } catch (error) {
+      setInlineError(error instanceof Error ? error.message : 'Không thể cập nhật trạng thái công việc.');
+    } finally {
+      setInlineSavingId(null);
+    }
+  };
+
   const handleReassign = async (taskId: number | string, newAssigneeId: string) => {
     await reassignTask({
       taskId: String(taskId),
@@ -117,7 +168,8 @@ export const TaskList: React.FC = () => {
 
   const canUpdateTaskProgress = (task: Task) =>
     canEditTask() || String(task.assigneeId ?? task.assignee_id) === String(currentUser.id);
-  const hasAnyAction = true;
+  const isEmployee = currentUser.role === 'EMPLOYEE';
+  const hasAnyAction = !isEmployee;
 
   return (
     <div className="bg-white/90 backdrop-blur-md border border-slate-100 rounded-3xl p-5 shadow-sm space-y-4">
@@ -129,8 +181,8 @@ export const TaskList: React.FC = () => {
       )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold text-slate-800">Bảng công việc</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Quản lý toàn bộ tiến độ, phân công và kiểm soát phân quyền</p>
+          <h2 className="text-sm font-bold text-slate-800">{isEmployee ? 'Công việc của tôi' : 'Bảng công việc'}</h2>
+          <p className="text-xs text-slate-400 mt-0.5">{isEmployee ? 'Cập nhật trạng thái và kéo thanh tiến độ trực tiếp trên từng công việc.' : 'Quản lý toàn bộ tiến độ, phân công và kiểm soát phân quyền'}</p>
         </div>
         <div className="flex items-center gap-2">
           {canCreateTask() && (
@@ -159,6 +211,8 @@ export const TaskList: React.FC = () => {
         ))}
       </div>
 
+      {inlineError && <div role="alert" className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-xs text-red-700">{inlineError}</div>}
+
       <div className="flex items-center justify-between bg-slate-50/70 px-4 py-2 rounded-2xl border border-slate-100">
         <span className="text-xs font-semibold text-blue-600">
           {tasks.length} việc • trang 1/1
@@ -177,8 +231,8 @@ export const TaskList: React.FC = () => {
         <SkeletonTable rows={5} cols={7} />
       ) : tasks.length === 0 ? (
         <EmptyState
-          title="Không tìm thấy công việc"
-          description="Vui lòng thử điều chỉnh lại bộ lọc."
+          title={isEmployee ? 'Bạn chưa được giao công việc nào' : 'Không tìm thấy công việc'}
+          description={isEmployee ? 'Các công việc được giao cho bạn sẽ xuất hiện tại đây.' : 'Vui lòng thử điều chỉnh lại bộ lọc.'}
           actionText={canCreateTask() ? 'Giao việc mới' : undefined}
           onAction={canCreateTask() ? handleOpenCreate : undefined}
         />
@@ -209,18 +263,53 @@ export const TaskList: React.FC = () => {
                   <td className="py-3 pr-3 font-semibold text-slate-700">{t.assigneeName}</td>
                   <td className="py-3 pr-3 text-slate-500">{t.departmentName}</td>
                   <td className="py-3 pr-3">
-                    <StatusBadge status={t.status} />
+                    {isEmployee ? (
+                      <select
+                        aria-label={`Trạng thái ${t.title}`}
+                        value={t.status}
+                        disabled={inlineSavingId === t.id || !canUpdateTaskProgress(t)}
+                        onChange={(event) => void saveInlineStatus(t, event.target.value as TaskStatus)}
+                        className="max-w-36 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-semibold text-slate-700 disabled:opacity-50"
+                      >
+                        <option value="TODO">Chưa bắt đầu</option>
+                        <option value="IN_PROGRESS">Đang thực hiện</option>
+                        <option value="WAITING">Chờ xử lý</option>
+                        <option value="BLOCKED">Bị chặn</option>
+                        <option value="COMPLETED">Hoàn thành</option>
+                        <option value="OVERDUE">Quá hạn</option>
+                        <option value="CANCELLED">Đã hủy</option>
+                      </select>
+                    ) : <StatusBadge status={t.status} />}
                   </td>
                   <td className="py-3 pr-3">
-                    <button type="button" onClick={() => canUpdateTaskProgress(t) && openProgress(t)} disabled={!canUpdateTaskProgress(t)} className="min-w-28 text-left group disabled:cursor-not-allowed disabled:opacity-70" aria-label={`Cập nhật tiến độ ${t.title}`}>
-                      <div className="mb-1 flex items-center justify-between text-[10px]">
-                        <span className="text-slate-400 group-hover:text-blue-600">Cập nhật</span>
-                        <span className="font-bold text-slate-700">{getProgress(t)}%</span>
+                    {isEmployee ? (
+                      <div className="min-w-32">
+                        <div className="mb-1 flex items-center justify-between text-[10px]"><span className="text-slate-400">{inlineSavingId === t.id ? 'Đang lưu...' : 'Kéo để cập nhật'}</span><span className="font-bold text-slate-700">{progressDrafts[String(t.id)] ?? getProgress(t)}%</span></div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="5"
+                          value={progressDrafts[String(t.id)] ?? getProgress(t)}
+                          disabled={!canUpdateTaskProgress(t) || inlineSavingId === t.id}
+                          onChange={(event) => setProgressDrafts((drafts) => ({ ...drafts, [String(t.id)]: Number(event.target.value) }))}
+                          onPointerUp={(event) => void saveInlineProgress(t, Number(event.currentTarget.value))}
+                          onKeyUp={(event) => void saveInlineProgress(t, Number(event.currentTarget.value))}
+                          aria-label={`Tiến độ ${t.title}`}
+                          className="w-full accent-blue-600 disabled:opacity-50"
+                        />
                       </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                        <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all" style={{ width: `${getProgress(t)}%` }} />
-                      </div>
-                    </button>
+                    ) : (
+                      <button type="button" onClick={() => canUpdateTaskProgress(t) && openProgress(t)} disabled={!canUpdateTaskProgress(t)} className="min-w-28 text-left group disabled:cursor-not-allowed disabled:opacity-70" aria-label={`Cập nhật tiến độ ${t.title}`}>
+                        <div className="mb-1 flex items-center justify-between text-[10px]">
+                          <span className="text-slate-400 group-hover:text-blue-600">Cập nhật</span>
+                          <span className="font-bold text-slate-700">{getProgress(t)}%</span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                          <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all" style={{ width: `${getProgress(t)}%` }} />
+                        </div>
+                      </button>
+                    )}
                   </td>
                   <td className="py-3 pr-3">
                     <PriorityBadge priority={t.priority} />

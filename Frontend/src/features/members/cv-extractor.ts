@@ -88,7 +88,7 @@ const extractPdfText = async (file: File, onProgress?: CvExtractionProgress) => 
     }
     if (pagesNeedingOcr.length === 0) return pageTexts.join('\n');
     if (pagesNeedingOcr.length > MAX_OCR_PDF_PAGES) {
-      throw new Error(`CV PDF có ${pagesNeedingOcr.length} trang cần OCR; hiện hỗ trợ tối đa ${MAX_OCR_PDF_PAGES} trang mỗi lần.`);
+      throw new Error(`PDF có ${pagesNeedingOcr.length} trang cần OCR; hiện hỗ trợ tối đa ${MAX_OCR_PDF_PAGES} trang mỗi lần.`);
     }
 
     onProgress?.('Phát hiện trang scan trong PDF. Đang khởi tạo OCR...');
@@ -132,6 +132,21 @@ const extractFileText = async (file: File, onProgress?: CvExtractionProgress) =>
     return extractImageText(file, onProgress);
   }
   throw new Error('Định dạng CV chưa được hỗ trợ. Vui lòng sử dụng PDF, DOCX, TXT, PNG, JPG hoặc WEBP.');
+};
+
+export const extractDocumentText = async (file: File, onProgress?: CvExtractionProgress): Promise<string> => {
+  if (file.size > 10 * 1024 * 1024) {
+    throw new Error('Tài liệu vượt quá dung lượng 10 MB.');
+  }
+  const extension = file.name.split('.').pop()?.toLowerCase();
+  if (!['pdf', 'docx', 'txt'].includes(extension || '')) {
+    throw new Error('Chỉ hỗ trợ tài liệu PDF, DOCX hoặc TXT.');
+  }
+  const text = await extractFileText(file, onProgress);
+  if (!text.trim()) {
+    throw new Error('Không trích xuất được văn bản trong tài liệu.');
+  }
+  return text;
 };
 
 const extractDate = (text: string) => {

@@ -1,66 +1,69 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '../../store/auth.store';
 import { useFilterStore } from '../../store/filter.store';
-import { useGetProjects, useCreateProject, useUpdateProject, useDeleteProject } from '../../hooks/useProjects';
-import { Trash2, Edit2, Plus, AlertCircle, Users, FolderKanban } from 'lucide-react';
-import { Project } from '../../types';
+import { useGetProjects, useCreateProject } from '../../hooks/useProjects';
+import { ArrowRight, Plus, FolderKanban } from 'lucide-react';
+import { Project, ProjectStatus } from '../../types';
 import { ProjectFormModal } from './ProjectFormModal';
 import { SkeletonTable } from '../../components/common/SkeletonTable';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ProjectFormData } from '../../schema/project.schema';
-import { ProjectMembersModal } from './ProjectMembersModal';
 import { ProjectWorkspace } from './ProjectWorkspace';
+import { Search } from 'lucide-react';
+
+const projectStatusLabels: Record<ProjectStatus, string> = {
+  PLANNING: 'Đang lên kế hoạch',
+  IN_PROGRESS: 'Đang thực hiện',
+  COMPLETED: 'Hoàn thành',
+  ON_HOLD: 'Tạm dừng',
+  OVERDUE: 'Quá hạn',
+};
+
+const projectStatusStyles: Record<ProjectStatus, string> = {
+  PLANNING: 'bg-slate-100 text-slate-600',
+  IN_PROGRESS: 'bg-blue-50 text-blue-700',
+  COMPLETED: 'bg-emerald-50 text-emerald-700',
+  ON_HOLD: 'bg-amber-50 text-amber-700',
+  OVERDUE: 'bg-rose-50 text-rose-700',
+};
 
 export const ProjectList: React.FC = () => {
-  const { canCreateProject, canEditProject, canDeleteProject, canManageProject } = useAuthStore();
+  const { currentUser, canCreateProject } = useAuthStore();
   const { filters } = useFilterStore();
   const { projects, isLoading, refetch } = useGetProjects(filters);
   const { createProject } = useCreateProject();
-  const { updateProject } = useUpdateProject();
-  const { deleteProject } = useDeleteProject();
 
   const [activeSection, setActiveSection] = useState<'list' | 'create'>('list');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [selectedMembersProject, setSelectedMembersProject] = useState<Project | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [managerSearch, setManagerSearch] = useState('');
+  const [managerStatus, setManagerStatus] = useState<'ALL' | ProjectStatus>('ALL');
+  const isManager = currentUser.role === 'MANAGER';
+  const managedProjects = isManager
+    ? projects.filter((project) => String(project.leader_id ?? project.pmId) === String(currentUser.id))
+    : projects;
+  const displayedProjects = isManager
+    ? managedProjects.filter((project) =>
+      `${project.name} ${project.description || ''}`.toLowerCase().includes(managerSearch.toLowerCase())
+      && (managerStatus === 'ALL' || project.status === managerStatus))
+    : managedProjects;
 
   if (selectedProject) {
     return (
       <ProjectWorkspace
         project={selectedProject}
         onBack={() => setSelectedProject(null)}
-        onEdit={() => handleOpenEdit(selectedProject)}
       />
     );
   }
 
   const handleOpenCreate = () => {
-    setEditingProject(null);
     setActiveSection('create');
   };
 
-  const handleOpenEdit = (project: Project) => {
-    setEditingProject(project);
-    setActiveSection('list');
-    setIsModalOpen(true);
-  };
-
-  const handleSaveProject = async (data: ProjectFormData, isEditing: boolean) => {
-    if (isEditing && editingProject) {
-      await updateProject(editingProject.id, data);
-    } else {
-      await createProject(data);
-    }
+  const handleSaveProject = async (data: ProjectFormData) => {
+    await createProject(data);
     await refetch();
-    if (!isEditing) setActiveSection('list');
-  };
-
-  const handleDelete = async (projectId: number | string) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa vĩnh viễn dự án này không?')) {
-      await deleteProject(projectId);
-      refetch();
-    }
+    setActiveSection('list');
   };
 
   const sectionTabs = (
@@ -107,150 +110,59 @@ export const ProjectList: React.FC = () => {
   return (
     <div className="space-y-4">
       {sectionTabs}
-      <div className="space-y-4 rounded-3xl border border-slate-100 bg-white/90 p-5 shadow-sm backdrop-blur-md">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-bold text-slate-800">Mức độ hoàn chỉnh dự án</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Click dự án để xem chi tiết hoặc chuyển sang tab Gantt</p>
+      <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><h2 className="text-sm font-bold text-slate-800">{isManager ? 'Dự án của tôi' : 'Danh sách dự án'}</h2><p className="mt-1 text-xs text-slate-400">{isManager ? 'Các dự án do bạn chủ trì; tìm kiếm và lọc theo trạng thái.' : 'Theo dõi trạng thái, thời gian và tiến độ dự án'}</p></div>
+          {canCreateProject() && <button type="button" onClick={handleOpenCreate} className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700"><Plus className="h-4 w-4" />Tạo dự án</button>}
         </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
           {[
-            ['Tổng dự án', projects.length, 'text-slate-800 bg-slate-50'],
-            ['Đang thực hiện', projects.filter((project) => project.status === 'IN_PROGRESS').length, 'text-blue-600 bg-blue-50'],
-            ['Hoàn thành', projects.filter((project) => project.status === 'COMPLETED').length, 'text-emerald-600 bg-emerald-50'],
-            ['Đang có cảnh báo', projects.filter((project) => project.hasOverdueTasks || project.has_overdue_tasks).length, 'text-red-600 bg-red-50'],
-          ].map(([label, value, style]) => (
-            <div key={String(label)} className={`rounded-2xl p-3 ${style}`}>
-              <div className="text-xl font-bold">{value as number}</div>
-              <div className="text-[11px] text-slate-500 mt-1">{String(label)}</div>
-            </div>
-          ))}
+            ['Tổng số dự án', managedProjects.length, 'bg-slate-50 text-slate-700'],
+            ['Đang lên kế hoạch', managedProjects.filter((project) => project.status === 'PLANNING').length, 'bg-slate-50 text-slate-700'],
+            ['Đang thực hiện', managedProjects.filter((project) => project.status === 'IN_PROGRESS').length, 'bg-blue-50 text-blue-700'],
+            ['Hoàn thành', managedProjects.filter((project) => project.status === 'COMPLETED').length, 'bg-emerald-50 text-emerald-700'],
+            ['Tạm dừng / quá hạn', managedProjects.filter((project) => project.status === 'ON_HOLD' || project.status === 'OVERDUE').length, 'bg-amber-50 text-amber-700'],
+          ].map(([label, value, style]) => <div key={String(label)} className={`rounded-2xl p-3 ${style}`}><div className="text-xl font-bold">{value as number}</div><div className="mt-1 text-[10px] opacity-75">{String(label)}</div></div>)}
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold px-2.5 py-1 bg-blue-50 text-blue-600 rounded-xl">
-            {projects.length} dự án
-          </span>
-          {canCreateProject() && (
-            <button
-              onClick={handleOpenCreate}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Tạo dự án mới
-            </button>
-          )}
-        </div>
-      </div>
+      </section>
 
-      {isLoading ? (
-        <SkeletonTable rows={4} cols={6} />
-      ) : projects.length === 0 ? (
-        <EmptyState
-          title="Không tìm thấy dự án"
-          description="Vui lòng thử điều chỉnh lại bộ lọc tìm kiếm hoặc tạo dự án mới."
-          actionText={canCreateProject() ? 'Tạo dự án' : undefined}
-          onAction={canCreateProject() ? handleOpenCreate : undefined}
-        />
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-100 text-slate-400 font-medium">
-                <th className="pb-3 font-semibold">Dự án</th>
-                <th className="pb-3 font-semibold">PM / Leader</th>
-                <th className="pb-3 font-semibold">Trạng thái</th>
-                <th className="pb-3 font-semibold">Thời gian</th>
-                <th className="pb-3 font-semibold w-48">Mức độ hoàn chỉnh</th>
-                <th className="pb-3 font-semibold text-right">Việc</th>
-                {(canEditProject() || canDeleteProject() || canManageProject()) && (
-                  <th className="pb-3 font-semibold text-center w-24">Hành động</th>
-                )}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {projects.map((p) => (
-                <tr key={p.id} onClick={() => setSelectedProject(p)} className="hover:bg-slate-50/70 transition group cursor-pointer">
-                  <td className="py-3.5 pr-3">
-                    <div className="font-bold text-slate-800">{p.name}</div>
-                    <div className="text-[11px] text-slate-400">{p.description}</div>
-                  </td>
-                  <td className="py-3.5 pr-3 font-medium text-slate-700">{p.leader_name || p.pmName}</td>
-                  <td className="py-3.5 pr-3">
-                    {(p.has_overdue_tasks || p.hasOverdueTasks) && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-red-50 text-red-600 border border-red-200">
-                        <AlertCircle className="w-3 h-3" />
-                        Có quá hạn
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-3.5 pr-3 text-slate-500 whitespace-nowrap">
-                    {p.start_date || p.startDate} ~ {p.end_date || p.endDate}
-                  </td>
-                  <td className="py-3.5 pr-3">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-blue-600 h-full rounded-full transition-all duration-300"
-                          style={{ width: `${p.progress_percent ?? p.progressPercent}%` }}
-                        />
-                      </div>
-                      <span className="text-[11px] font-bold text-slate-700 w-8 text-right">
-                        {p.progress_percent ?? p.progressPercent}%
-                      </span>
-                    </div>
-                  </td>
-                  <td className="py-3.5 text-right font-medium text-slate-600">
-                    {p.completed_tasks ?? p.completedTasks}/{p.total_tasks ?? p.totalTasks}
-                  </td>
-                  {(canEditProject() || canDeleteProject() || canManageProject()) && (
-                    <td className="py-3.5 text-center" onClick={(event) => event.stopPropagation()}>
-                      <div className="flex items-center justify-center gap-1 opacity-80 group-hover:opacity-100">
-                        {canManageProject() && (
-                          <button
-                            onClick={() => setSelectedMembersProject(p)}
-                            title="Quản lý thành viên dự án"
-                            className="p-1 hover:bg-blue-50 rounded-lg text-slate-500 hover:text-blue-600 transition"
-                          >
-                            <Users className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        {canEditProject() && (
-                          <button
-                            onClick={() => handleOpenEdit(p)}
-                            title="Chỉnh sửa dự án"
-                            className="p-1 hover:bg-slate-200 rounded-lg text-slate-500 hover:text-blue-600 transition"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        {canDeleteProject() && (
-                          <button
-                            onClick={() => handleDelete(p.id)}
-                            title="Xóa dự án (Admin/Manager)"
-                            className="p-1 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600 transition"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <section className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+          <h3 className="text-sm font-bold text-slate-800">{isManager ? `Dự án chủ trì (${displayedProjects.length})` : `Các dự án (${displayedProjects.length})`}</h3>
+          {isManager && <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <label className="relative block sm:w-64"><Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><input value={managerSearch} onChange={(event) => setManagerSearch(event.target.value)} placeholder="Tìm tên hoặc mô tả dự án..." className="w-full rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" /></label>
+            <select aria-label="Lọc dự án theo trạng thái" value={managerStatus} onChange={(event) => setManagerStatus(event.target.value as 'ALL' | ProjectStatus)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 outline-none focus:border-blue-400">
+              <option value="ALL">Tất cả trạng thái</option>
+              {Object.entries(projectStatusLabels).map(([status, label]) => <option key={status} value={status}>{label}</option>)}
+            </select>
+          </div>}
         </div>
-      )}
-
-      <ProjectFormModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmitSuccess={handleSaveProject}
-        initialProject={editingProject}
-      />
-      <ProjectMembersModal project={selectedMembersProject} onClose={() => setSelectedMembersProject(null)} />
-      </div>
+        {isLoading ? <SkeletonTable rows={4} cols={6} /> : displayedProjects.length === 0 ? (
+          <EmptyState title={isManager ? (managedProjects.length ? 'Không tìm thấy dự án phù hợp' : 'Bạn chưa chủ trì dự án nào') : 'Chưa có dự án'} description={isManager ? (managedProjects.length ? 'Thử từ khóa hoặc trạng thái khác.' : 'Các dự án do bạn chủ trì sẽ xuất hiện tại đây.') : 'Tạo dự án mới để bắt đầu theo dõi tiến độ.'} actionText={canCreateProject() && !isManager ? 'Tạo dự án' : undefined} onAction={canCreateProject() && !isManager ? handleOpenCreate : undefined} />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[850px] text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500">
+                <tr><th className="px-5 py-3 font-semibold">Dự án</th><th className="px-4 py-3 font-semibold">PM phụ trách</th><th className="px-4 py-3 font-semibold">Trạng thái</th><th className="px-4 py-3 font-semibold">Thời gian</th><th className="px-4 py-3 font-semibold">Tiến độ</th><th className="px-4 py-3 text-center font-semibold">Công việc</th><th className="px-5 py-3 text-right font-semibold">Hành động</th></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {displayedProjects.map((project) => {
+                  const progress = Math.max(0, Math.min(100, Number(project.progressPercent ?? project.progress_percent ?? 0)));
+                  return <tr key={project.id} className="transition hover:bg-slate-50/70">
+                    <td className="px-5 py-3.5"><div className="font-semibold text-slate-800">{project.name}</div><div className="mt-1 max-w-sm truncate text-[10px] text-slate-400">{project.description || 'Chưa có mô tả'}</div></td>
+                    <td className="px-4 py-3.5 text-slate-600">{project.leader_name || project.pmName || '—'}</td>
+                    <td className="px-4 py-3.5"><span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${projectStatusStyles[project.status]}`}>{projectStatusLabels[project.status]}</span></td>
+                    <td className="whitespace-nowrap px-4 py-3.5 text-slate-500">{String(project.startDate || project.start_date || '').slice(0, 10)} – {String(project.endDate || project.end_date || '').slice(0, 10)}</td>
+                    <td className="px-4 py-3.5"><div className="flex min-w-28 items-center gap-2"><div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-blue-600" style={{ width: `${progress}%` }} /></div><span className="w-10 text-right text-[10px] font-bold text-slate-700">{progress}%</span></div></td>
+                    <td className="px-4 py-3.5 text-center text-slate-600">{project.completedTasks ?? project.completed_tasks ?? 0}/{project.totalTasks ?? project.total_tasks ?? 0}</td>
+                    <td className="px-5 py-3.5 text-right"><button type="button" aria-label={`Mở chi tiết dự án ${project.name}`} title="Mở chi tiết dự án" onClick={() => setSelectedProject(project)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-blue-600 transition hover:bg-blue-50"><ArrowRight className="h-4 w-4" /></button></td>
+                  </tr>;
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   );
 };

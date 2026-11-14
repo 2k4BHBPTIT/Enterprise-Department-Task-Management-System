@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Edit2, Eye, LoaderCircle, Plus, Search, ShieldCheck, Trash2, Upload, Users } from 'lucide-react';
+import { BriefcaseBusiness, CalendarClock, Edit2, Eye, FileText, LoaderCircle, Plus, Search, ShieldCheck, Trash2, Upload, Users } from 'lucide-react';
 import { departmentApi } from '../../services/api/department.api';
 import { userApi } from '../../services/api/user.api';
-import { taskApi } from '../../services/api/task.api';
-import { Department, Task, User } from '../../types';
+import { projectApi } from '../../services/api/project.api';
+import { ProjectMember, projectMemberApi } from '../../services/api/project-member.api';
+import { Department, User } from '../../types';
 import { useAuthStore } from '../../store/auth.store';
+import { useFilterStore } from '../../store/filter.store';
 import { PermissionManagement } from '../permissions/PermissionManagement';
 import { extractCvProfile } from './cv-extractor';
 
@@ -13,11 +15,12 @@ type LocalStaffProfile = {
   specialization: string;
   education: string;
   experienceYears: string;
-  salary: string;
   skills: string;
   phone: string;
   address: string;
 };
+
+type EmployeeProject = ProjectMember & { projectName: string };
 
 const getStoredProfiles = (): Record<string, LocalStaffProfile> => {
   try { return JSON.parse(localStorage.getItem('staffProfiles') || '{}'); } catch { return {}; }
@@ -30,7 +33,6 @@ const getLocalProfile = (user: User): LocalStaffProfile => {
     specialization: user.specialization || '',
     education: user.education || '',
     experienceYears: String(user.experience_years || 0),
-    salary: user.salary ? String(user.salary) : '',
     skills: (user.skills || []).join(', '),
     phone: user.phone || '',
     address: user.address || '',
@@ -44,7 +46,6 @@ const saveLocalProfile = (userId: number | string, form: typeof emptyForm) => {
     specialization: form.specialization,
     education: form.education,
     experienceYears: form.experienceYears,
-    salary: form.salary,
     skills: form.skills,
     phone: form.phone,
     address: form.address,
@@ -62,26 +63,28 @@ const emptyForm = {
   specialization: '',
   education: '',
   experienceYears: '0',
-  salary: '',
   skills: '',
   phone: '',
   address: '',
 };
 
 export const MembersWorkload: React.FC = () => {
-  const { canManageStaff, isAdmin, dashboardMode } = useAuthStore();
+  const { canManageStaff, isAdmin, dashboardMode, setDashboardMode, setActiveTab } = useAuthStore();
+  const setFilter = useFilterStore((state) => state.setFilter);
   const [activeSection, setActiveSection] = useState<'staff' | 'create' | 'permissions'>('staff');
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [search, setSearch] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('ALL');
   const [roleFilter, setRoleFilter] = useState('ALL');
+  const [detailTab, setDetailTab] = useState<'profile' | 'attendance' | 'projects' | 'payroll'>('profile');
+  const [employeeProjects, setEmployeeProjects] = useState<EmployeeProject[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [projectsError, setProjectsError] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [advancedSearch, setAdvancedSearch] = useState('');
   const [staffError, setStaffError] = useState('');
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [cvStatus, setCvStatus] = useState('');
@@ -90,13 +93,36 @@ export const MembersWorkload: React.FC = () => {
   const [cvSourceText, setCvSourceText] = useState('');
 
   const loadData = async () => {
-    const [userData, departmentData, taskData] = await Promise.all([userApi.getUsers(), departmentApi.getDepartments(), taskApi.getTasks()]);
+    const [userData, departmentData] = await Promise.all([userApi.getUsers(), departmentApi.getDepartments()]);
     setUsers(userData);
     setDepartments(departmentData);
-    setTasks(taskData);
   };
 
   useEffect(() => { loadData().catch(() => undefined); }, []);
+
+  useEffect(() => {
+    if (!selectedUser || detailTab !== 'projects') return;
+    let active = true;
+    setEmployeeProjects([]);
+    setProjectsError('');
+    setProjectsLoading(true);
+    projectApi.getProjects()
+      .then(async (projects) => {
+        const memberships = await Promise.all(projects.map((project) => projectMemberApi.getMembers(project.id)));
+        if (active) {
+          setEmployeeProjects(memberships.flatMap((projectMembers, index) => projectMembers
+            .filter((member) => String(member.userId) === String(selectedUser.id))
+            .map((member) => ({ ...member, projectName: projects[index].name }))));
+        }
+      })
+      .catch((error) => {
+        if (active) setProjectsError(error instanceof Error ? error.message : 'Không thể tải dự án tham gia.');
+      })
+      .finally(() => {
+        if (active) setProjectsLoading(false);
+      });
+    return () => { active = false; };
+  }, [selectedUser?.id, detailTab]);
 
   const openCreate = () => {
     setEditingUser(null);
@@ -118,7 +144,6 @@ export const MembersWorkload: React.FC = () => {
       specialization: user.specialization || '',
       education: user.education || '',
       experienceYears: String(user.experience_years || 0),
-      salary: user.salary ? String(user.salary) : '',
       skills: (user.skills || []).join(', '),
       phone: user.phone || '',
       address: user.address || '',
@@ -173,10 +198,8 @@ export const MembersWorkload: React.FC = () => {
     const matchesSearch = `${user.full_name || user.name} ${user.email}`.toLowerCase().includes(search.toLowerCase());
     const matchesDepartment = departmentFilter === 'ALL' || String(user.departmentId || user.department_id) === departmentFilter;
     const matchesRole = roleFilter === 'ALL' || (user.system_role || user.role) === roleFilter;
-    const haystack = `${user.full_name || user.name} ${user.email} ${getLocalProfile(user).education} ${getLocalProfile(user).specialization} ${getLocalProfile(user).skills}`.toLowerCase();
-    const matchesAdvanced = !advancedSearch.trim() || haystack.includes(advancedSearch.trim().toLowerCase());
-    return matchesSearch && matchesDepartment && matchesRole && matchesAdvanced;
-  }), [users, search, departmentFilter, roleFilter, advancedSearch]);
+    return matchesSearch && matchesDepartment && matchesRole;
+  }), [users, search, departmentFilter, roleFilter]);
 
   const analyzeCv = async (file?: File) => {
     if (!file) return;
@@ -280,7 +303,7 @@ export const MembersWorkload: React.FC = () => {
             <div><h2 className="text-sm font-bold text-slate-800">Danh sách nhân viên</h2><p className="mt-1 text-[11px] text-slate-400">Hồ sơ và danh sách nhân viên đang hoạt động</p></div>
             <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">{visibleUsers.length} nhân sự</span>
           </div>
-          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
             <label className="relative sm:col-span-2 xl:col-span-1">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
               <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm kiếm theo tên, phòng ban..." className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-xs outline-none focus:border-blue-400" />
@@ -291,23 +314,34 @@ export const MembersWorkload: React.FC = () => {
             </select>
             <select aria-label="Lọc vai trò" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
               <option value="ALL">Tất cả vai trò</option>
-              {['ADMIN', 'MANAGER', 'PROJECT_MANAGER', 'PROJECT_LEADER', 'EMPLOYEE'].map((role) => <option key={role} value={role}>{role.replace(/_/g, ' ')}</option>)}
+              {['ADMIN', 'MANAGER', 'EMPLOYEE'].map((role) => <option key={role} value={role}>{role.replace(/_/g, ' ')}</option>)}
             </select>
+            <label>
+              <span className="sr-only">Lọc trạng thái làm việc</span>
+              <select aria-label="Lọc trạng thái làm việc" disabled value="PENDING" className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs text-slate-500">
+                <option value="PENDING">Trạng thái làm việc · Chờ API</option>
+                <option value="WORKING">Đang làm</option>
+                <option value="PROBATION">Thử việc</option>
+                <option value="ON_LEAVE">Nghỉ phép</option>
+                <option value="PAUSED">Tạm nghỉ</option>
+                <option value="RESIGNED">Đã nghỉ việc</option>
+              </select>
+            </label>
           </div>
-          <label className="mt-3 block">
-            <span className="sr-only">Tìm kiếm nâng cao bằng cấp, chuyên môn, kỹ năng</span>
-            <input value={advancedSearch} onChange={(event) => setAdvancedSearch(event.target.value)} placeholder="Tìm theo bằng cấp, chuyên môn hoặc kỹ năng..." className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none focus:border-blue-400" />
-          </label>
+          <p className="mt-2 text-[10px] text-slate-400">Trạng thái làm việc riêng (đang làm, thử việc, nghỉ phép, tạm nghỉ, đã nghỉ việc) sẽ lọc được sau khi backend bổ sung trường dữ liệu.</p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left text-xs">
+          <table className="w-full min-w-[1040px] text-left text-xs">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
+                <th className="px-5 py-3 font-semibold">Mã nhân sự (ID)</th>
                 <th className="px-5 py-3 font-semibold">Họ và tên</th>
                 <th className="px-4 py-3 font-semibold">Email</th>
                 <th className="px-4 py-3 font-semibold">Phòng ban</th>
-                <th className="px-4 py-3 font-semibold">Chức vụ</th>
+                <th className="px-4 py-3 font-semibold">Chức vụ chuyên môn</th>
+                <th className="px-4 py-3 font-semibold">Chuyên môn (CV)</th>
                 <th className="px-4 py-3 font-semibold">Vai trò</th>
+                <th className="px-4 py-3 font-semibold">Trạng thái làm việc</th>
                 <th className="px-5 py-3 text-right font-semibold">Thao tác</th>
               </tr>
             </thead>
@@ -316,19 +350,22 @@ export const MembersWorkload: React.FC = () => {
                 const profile = getLocalProfile(user);
                 return (
                   <tr key={user.id} className="transition hover:bg-slate-50/70">
+                    <td className="px-5 py-3.5 font-mono text-slate-500">{user.id}</td>
                     <td className="px-5 py-3.5">
-                      <button type="button" onClick={() => setSelectedUser(user)} className="flex items-center gap-2.5 text-left">
+                      <button type="button" onClick={() => { setSelectedUser(user); setDetailTab('profile'); }} className="flex items-center gap-2.5 text-left">
                         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">{(user.full_name || user.name || '?').charAt(0)}</span>
                         <span className="font-semibold text-slate-800">{user.full_name || user.name}</span>
                       </button>
                     </td>
                     <td className="px-4 py-3.5 text-slate-500">{user.email}</td>
                     <td className="px-4 py-3.5 text-slate-600">{user.departmentName || user.department_name || 'Chưa có phòng ban'}</td>
+                    <td className="px-4 py-3.5"><span className="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-700">Chờ API</span></td>
                     <td className="px-4 py-3.5 text-slate-600">{profile.specialization || '—'}</td>
                     <td className="px-4 py-3.5"><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-600">{(user.system_role || user.role).replace(/_/g, ' ')}</span></td>
+                    <td className="px-4 py-3.5"><span className="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-700">Chờ API</span></td>
                     <td className="px-5 py-3.5">
                       <div className="flex justify-end gap-1">
-                        <button type="button" title="Xem chi tiết" aria-label={`Xem ${user.full_name || user.name}`} onClick={() => setSelectedUser(user)} className="rounded-lg p-1.5 hover:bg-blue-50"><Eye className="h-3.5 w-3.5 text-blue-600" /></button>
+                        <button type="button" title="Xem chi tiết" aria-label={`Xem ${user.full_name || user.name}`} onClick={() => { setSelectedUser(user); setDetailTab('profile'); }} className="rounded-lg p-1.5 hover:bg-blue-50"><Eye className="h-3.5 w-3.5 text-blue-600" /></button>
                         {canManageStaff() && <>
                           <button type="button" title="Sửa nhân sự" aria-label={`Sửa ${user.full_name || user.name}`} onClick={() => openEdit(user)} className="rounded-lg p-1.5 hover:bg-blue-50"><Edit2 className="h-3.5 w-3.5 text-blue-600" /></button>
                           <button type="button" title={deletingUserId === String(user.id) ? 'Đang ngừng hoạt động' : 'Ngừng hoạt động'} aria-label={`Ngừng hoạt động ${user.full_name || user.name}`} disabled={deletingUserId === String(user.id)} onClick={() => deleteUser(user)} className="rounded-lg p-1.5 hover:bg-red-50 disabled:cursor-wait disabled:opacity-50">{deletingUserId === String(user.id) ? <LoaderCircle className="h-3.5 w-3.5 animate-spin text-red-500" /> : <Trash2 className="h-3.5 w-3.5 text-red-500" />}</button>
@@ -338,7 +375,7 @@ export const MembersWorkload: React.FC = () => {
                   </tr>
                 );
               })}
-              {!visibleUsers.length && <tr><td colSpan={6} className="px-5 py-14 text-center text-slate-400"><Users className="mx-auto mb-2 h-7 w-7" />Không tìm thấy nhân sự phù hợp.</td></tr>}
+              {!visibleUsers.length && <tr><td colSpan={9} className="px-5 py-14 text-center text-slate-400"><Users className="mx-auto mb-2 h-7 w-7" />Không tìm thấy nhân sự phù hợp.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -346,13 +383,92 @@ export const MembersWorkload: React.FC = () => {
 
       {selectedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onMouseDown={() => setSelectedUser(null)}>
-          <div onMouseDown={(event) => event.stopPropagation()} className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-6 shadow-xl">
-            <div className="flex items-start justify-between"><div><h3 className="text-base font-bold text-slate-800">{selectedUser.full_name || selectedUser.name}</h3><p className="mt-1 text-xs text-slate-400">{selectedUser.email}</p></div><button onClick={() => setSelectedUser(null)} className="text-xl text-slate-400">×</button></div>
-            {(() => {
+          <div onMouseDown={(event) => event.stopPropagation()} className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-3xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-lg font-bold text-blue-700">{(selectedUser.full_name || selectedUser.name || '?').charAt(0)}</div>
+                <div><h3 className="text-base font-bold text-slate-800">{selectedUser.full_name || selectedUser.name}</h3><p className="mt-1 text-xs text-slate-400">{selectedUser.email}</p></div>
+              </div>
+              <button type="button" aria-label="Đóng hồ sơ" onClick={() => setSelectedUser(null)} className="rounded-xl px-3 py-1 text-2xl leading-none text-slate-400 hover:bg-slate-100">×</button>
+            </div>
+            <div role="tablist" aria-label="Thông tin nhân sự" className="mt-4 flex flex-wrap gap-2 border-b border-slate-100 pb-3">
+              {[
+                ['profile', 'Thông tin chung'],
+                ['attendance', 'Chấm công & lịch sử'],
+                ['projects', 'Dự án tham gia'],
+                ['payroll', 'Lương & hợp đồng'],
+              ].map(([tab, label]) => (
+                <button key={tab} type="button" role="tab" aria-selected={detailTab === tab} onClick={() => setDetailTab(tab as typeof detailTab)} className={`rounded-xl px-3 py-2 text-xs font-semibold ${detailTab === tab ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}>{label}</button>
+              ))}
+            </div>
+            {detailTab === 'profile' && (() => {
               const profile = getLocalProfile(selectedUser);
-              const employeeTasks = tasks.filter((task) => String(task.assigneeId ?? task.assignee_id) === String(selectedUser.id));
-              return <><div className="mt-5 grid grid-cols-2 gap-3 text-xs md:grid-cols-4">{[['Bằng cấp', profile.education || '-'], ['Chuyên môn', profile.specialization || '-'], ['Kinh nghiệm', `${profile.experienceYears || 0} năm`], ['Kỹ năng', profile.skills || '-']].map(([label, value]) => <div key={label} className="rounded-2xl bg-slate-50 p-3"><div className="text-[10px] text-slate-400">{label}</div><div className="mt-1 font-semibold text-slate-700">{value}</div></div>)}</div><div className="mt-5"><h4 className="text-xs font-bold text-slate-800">Công việc nhân sự đang phụ trách</h4><div className="mt-2 divide-y divide-slate-100">{employeeTasks.map((task) => <div key={task.id} className="flex items-center justify-between py-3 text-xs"><div><div className="font-semibold text-slate-700">{task.title}</div><div className="mt-1 text-[10px] text-slate-400">{task.projectName || task.project_name || 'Không xác định dự án'} • hạn {String(task.deadline || task.dueDate).slice(0, 10)}</div></div><span className={`rounded-full px-2 py-1 text-[10px] ${task.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'}`}>{task.status}</span></div>)}</div>{!employeeTasks.length && <div className="py-8 text-center text-xs text-slate-400">Nhân sự chưa có công việc.</div>}</div></>;
+              const department = departments.find((item) => String(item.id) === String(selectedUser.departmentId ?? selectedUser.department_id));
+              const info = [
+                ['Mã nhân sự (ID hệ thống)', String(selectedUser.id)],
+                ['Ngày sinh', profile.dateOfBirth || 'Chưa có dữ liệu'],
+                ['Giới tính', 'Chờ API'],
+                ['Số điện thoại', profile.phone || 'Chưa có dữ liệu'],
+                ['Email công ty', selectedUser.email],
+                ['Email cá nhân', 'Chờ API'],
+                ['Địa chỉ', profile.address || 'Chưa có dữ liệu'],
+                ['CCCD/CMND', 'Chờ API'],
+                ['Phòng ban', department?.name || 'Chưa phân phòng ban'],
+                ['Chức vụ chuyên môn', 'Chờ API'],
+                ['Vai trò hệ thống', (selectedUser.system_role || selectedUser.role).replace(/_/g, ' ')],
+                ['Hình thức làm việc', 'Chờ API'],
+                ['Ngày bắt đầu làm việc', 'Chờ API'],
+                ['Trạng thái làm việc', 'Chờ API'],
+                ['Bằng cấp / đào tạo', profile.education || 'Chưa có dữ liệu'],
+                ['Chuyên môn trong hồ sơ', profile.specialization || 'Chưa có dữ liệu'],
+                ['Kinh nghiệm', `${profile.experienceYears || 0} năm`],
+                ['Kỹ năng', profile.skills || 'Chưa có dữ liệu'],
+                ['Trạng thái tài khoản', selectedUser.status === 'ACTIVE' ? 'Đang hoạt động' : selectedUser.status],
+              ];
+              return (
+                <section className="mt-5">
+                  <div className="mb-4 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-2xl font-bold text-blue-700 shadow-sm">{(selectedUser.full_name || selectedUser.name || '?').charAt(0)}</div>
+                    <div><p className="text-[10px] font-semibold uppercase tracking-wide text-blue-500">Hồ sơ nhân sự</p><h4 className="mt-1 text-lg font-bold text-slate-800">{selectedUser.full_name || selectedUser.name}</h4><p className="text-xs text-slate-500">{department?.name || 'Chưa phân phòng ban'} · {String(selectedUser.system_role || selectedUser.role).replace(/_/g, ' ')}</p></div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {info.map(([label, value]) => <div key={label} className="rounded-2xl border border-slate-100 bg-white p-3"><div className="text-[10px] text-slate-400">{label}</div><div className={`mt-1 break-words text-xs font-semibold ${value === 'Chờ API' ? 'text-amber-700' : 'text-slate-700'}`}>{value}</div></div>)}
+                  </div>
+                  <p className="mt-3 text-[10px] text-slate-400">Các trường ghi “Chờ API” chưa được backend hỗ trợ nên hiện chưa thể nhập hoặc lưu.</p>
+                </section>
+              );
             })()}
+            {detailTab === 'attendance' && (
+              <section className="mt-5 rounded-2xl border border-amber-100 bg-amber-50/60 p-5">
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-800"><CalendarClock className="h-5 w-5 text-amber-600" />Chấm công & lịch sử làm việc</div>
+                <p className="mt-2 text-xs leading-5 text-slate-600">Tóm tắt ngày công, đi muộn, nghỉ phép và lịch sử check-in/check-out sẽ hiển thị sau khi tích hợp API chấm công.</p>
+                <span className="mt-3 inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold text-amber-800">Đang chờ API</span>
+              </section>
+            )}
+            {detailTab === 'projects' && (
+              <section className="mt-5">
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-800"><BriefcaseBusiness className="h-5 w-5 text-blue-600" />Dự án nhân sự tham gia</div>
+                {projectsError && <div role="alert" className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">{projectsError}</div>}
+                {projectsLoading ? <div className="py-12 text-center text-xs text-slate-400">Đang tải dự án tham gia...</div> : (
+                  <div className="mt-3 divide-y divide-slate-100 rounded-2xl border border-slate-100">
+                    {employeeProjects.map((membership) => (
+                      <div key={membership.projectId} className="flex flex-wrap items-center gap-3 p-4">
+                        <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-slate-800">{membership.projectName}</div><div className="mt-1 text-[11px] text-slate-500">Vai trò dự án: {membership.projectRole.replace(/_/g, ' ')}</div></div>
+                        <button type="button" onClick={() => { setFilter('projectId', String(membership.projectId)); setDashboardMode('PM'); setActiveTab('projects'); setSelectedUser(null); }} className="rounded-xl border border-blue-100 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50">Mở dự án</button>
+                      </div>
+                    ))}
+                    {!employeeProjects.length && !projectsError && <div className="py-12 text-center text-xs text-slate-400">Nhân sự chưa tham gia dự án nào.</div>}
+                  </div>
+                )}
+              </section>
+            )}
+            {detailTab === 'payroll' && (
+              <section className="mt-5 rounded-2xl border border-amber-100 bg-amber-50/60 p-5">
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-800"><FileText className="h-5 w-5 text-amber-600" />Lương & hợp đồng</div>
+                <p className="mt-2 text-xs leading-5 text-slate-600">Lương cơ bản, hệ số, phụ cấp, loại hợp đồng và thời hạn hiệu lực sẽ được bổ sung khi backend có API. Dữ liệu lương hiện không được nhập hoặc lưu ở trình duyệt.</p>
+                <span className="mt-3 inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold text-amber-800">Đang chờ API</span>
+              </section>
+            )}
           </div>
         </div>
       )}
@@ -385,13 +501,12 @@ export const MembersWorkload: React.FC = () => {
               <label className="text-xs text-slate-500">Email<input required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} className="mt-1 w-full px-3 py-2 border rounded-xl text-slate-800" /></label>
               {!editingUser && <label className="text-xs text-slate-500">Mật khẩu<input required minLength={6} type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} className="mt-1 w-full px-3 py-2 border rounded-xl text-slate-800" /></label>}
               <label className="text-xs text-slate-500">Phòng ban<select value={form.departmentId} onChange={(event) => setForm({ ...form, departmentId: event.target.value })} className="mt-1 w-full px-3 py-2 border rounded-xl"><option value="">Không chọn</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select></label>
-              <label className="text-xs text-slate-500 md:col-span-2">Vai trò<select value={form.systemRole} onChange={(event) => setForm({ ...form, systemRole: event.target.value })} className="mt-1 w-full px-3 py-2 border rounded-xl"><option value="EMPLOYEE">Employee</option><option value="PROJECT_LEADER">Project Leader</option><option value="PROJECT_MANAGER">Project Manager</option><option value="MANAGER">Manager</option><option value="ADMIN">Admin</option></select></label>
+              <label className="text-xs text-slate-500 md:col-span-2">Vai trò hệ thống<select value={form.systemRole} onChange={(event) => setForm({ ...form, systemRole: event.target.value })} className="mt-1 w-full px-3 py-2 border rounded-xl"><option value="EMPLOYEE">Employee</option><option value="MANAGER">Manager</option><option value="ADMIN">Admin</option>{editingUser && ['PROJECT_MANAGER', 'PROJECT_LEADER'].includes(form.systemRole) && <option value={form.systemRole}>Vai trò cũ: {form.systemRole.replace(/_/g, ' ')} (giữ nguyên)</option>}</select></label>
               <label className="text-xs text-slate-500">Ngày sinh<input type="date" value={form.dateOfBirth} onChange={(event) => setForm({ ...form, dateOfBirth: event.target.value })} className="mt-1 w-full px-3 py-2 border rounded-xl" /></label>
               <label className="text-xs text-slate-500">Số điện thoại<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} className="mt-1 w-full px-3 py-2 border rounded-xl" /></label>
               <label className="text-xs text-slate-500">Bằng cấp / đào tạo<input value={form.education} onChange={(event) => setForm({ ...form, education: event.target.value })} placeholder="Kỹ sư CNTT..." className="mt-1 w-full px-3 py-2 border rounded-xl" /></label>
               <label className="text-xs text-slate-500">Chuyên môn<input value={form.specialization} onChange={(event) => setForm({ ...form, specialization: event.target.value })} className="mt-1 w-full px-3 py-2 border rounded-xl" /></label>
               <label className="text-xs text-slate-500">Số năm kinh nghiệm<input type="number" min="0" value={form.experienceYears} onChange={(event) => setForm({ ...form, experienceYears: event.target.value })} className="mt-1 w-full px-3 py-2 border rounded-xl" /></label>
-              <label className="text-xs text-slate-500">Mức lương (VNĐ)<input type="number" min="0" value={form.salary} onChange={(event) => setForm({ ...form, salary: event.target.value })} className="mt-1 w-full px-3 py-2 border rounded-xl" /></label>
               <label className="text-xs text-slate-500 md:col-span-2">Kỹ năng (phân cách bằng dấu phẩy)<input value={form.skills} onChange={(event) => setForm({ ...form, skills: event.target.value })} placeholder="Java, React, SQL..." className="mt-1 w-full px-3 py-2 border rounded-xl" /></label>
               <label className="text-xs text-slate-500 md:col-span-2">Địa chỉ<input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} className="mt-1 w-full px-3 py-2 border rounded-xl" /></label>
             </div>

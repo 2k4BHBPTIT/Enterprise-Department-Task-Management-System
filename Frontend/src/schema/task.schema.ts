@@ -30,6 +30,10 @@ export const taskSchema = z.object({
   taskType: z.enum(['PLANNING', 'DEVELOPMENT', 'DESIGN', 'MARKETING', 'TESTING', 'OTHER'], {
     required_error: 'Vui lòng chọn phân loại công việc',
   }),
+  startDate: z
+    .string()
+    .refine((value) => !value || /^\d{4}-\d{2}-\d{2}$/.test(value), 'Định dạng ngày bắt đầu phải là YYYY-MM-DD')
+    .default(''),
   dueDate: z
     .string({ required_error: 'Hạn chót không được để trống' })
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Định dạng hạn chót phải là YYYY-MM-DD')
@@ -44,6 +48,9 @@ export const taskSchema = z.object({
     ),
   isImportant: z.boolean().default(false),
   isUrgent: z.boolean().default(false),
+}).refine((data) => !data.startDate || data.startDate <= data.dueDate, {
+  message: 'Ngày bắt đầu không được sau hạn chót',
+  path: ['startDate'],
 });
 
 export type TaskFormData = z.infer<typeof taskSchema>;

@@ -57,6 +57,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       status: 'TODO',
       priority: 'HIGH',
       taskType: 'DEVELOPMENT',
+      startDate: '',
       dueDate: new Date().toISOString().split('T')[0],
       isImportant: false,
       isUrgent: false,
@@ -76,6 +77,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         status: initialTask.status,
         priority: initialTask.priority,
         taskType: initialTask.taskType ?? initialTask.task_type ?? 'DEVELOPMENT',
+        startDate: String(initialTask.startDate ?? initialTask.start_date ?? '').slice(0, 10),
         dueDate: initialTask.dueDate ?? initialTask.deadline,
         isImportant: initialTask.isImportant ?? initialTask.is_important ?? false,
         isUrgent: initialTask.isUrgent ?? initialTask.is_urgent ?? false,
@@ -92,6 +94,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         status: 'TODO',
         priority: 'HIGH',
         taskType: 'DEVELOPMENT',
+        startDate: '',
         dueDate: new Date().toISOString().split('T')[0],
         isImportant: false,
         isUrgent: false,
@@ -257,7 +260,16 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Ngày bắt đầu</label>
+              <input
+                type="date"
+                {...register('startDate')}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              />
+              {errors.startDate && <p className="text-red-500 text-[11px] mt-1 font-medium">{errors.startDate.message}</p>}
+            </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Hạn chót <span className="text-red-500">*</span>
@@ -270,7 +282,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
               {errors.dueDate && <p className="text-red-500 text-[11px] mt-1 font-medium">{errors.dueDate.message}</p>}
             </div>
 
-            <div>
+            <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">Công việc phụ thuộc trước</label>
               <div className="flex flex-wrap gap-1.5 p-2.5 bg-slate-50 border border-slate-200 rounded-xl max-h-28 overflow-y-auto">
                 {!selectedProjectId && <span className="text-[11px] text-slate-400">Chọn dự án để xem các đầu mục có thể phụ thuộc.</span>}
